@@ -41,7 +41,8 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 .how { margin: 10px 0 0; font-size: 13px; line-height: 1.45; opacity: .78; }
 .line { margin: 8px 0 0; font-size: 15px; }
 .boards { display: flex; gap: 18px; justify-content: center; margin-top: 12px; text-align: left; }
-.board { min-width: 150px; border-top: 2px solid rgba(242,239,230,.5); padding-top: 4px; }
+.narrow h1 { font-size: 54px; } .narrow .btn { padding: 6px 18px 4px; } .narrow .boards { gap: 12px; }
+.board { min-width: 120px; border-top: 2px solid rgba(242,239,230,.5); padding-top: 4px; }
 .board h3 { margin: 0 0 2px; font-family: "Bebas Neue", Impact, sans-serif; font-weight: 400; font-size: 18px; letter-spacing: 1px; opacity: .8; }
 .board ol { margin: 0; padding: 0; list-style-position: inside; font-size: 13px; line-height: 1.5; }
 #namebox { margin-top: 10px; display: flex; gap: 6px; justify-content: center; }
@@ -95,7 +96,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <script type="module">
 import * as THREE from 'three';
 
-const VERSION = 'v2026-11-19d';
+const VERSION = 'v2026-11-19e';
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -121,6 +122,7 @@ const T = {
   slideTime: 0.75, rollWindow: 0.5, hardLand: -17,
   lift: 0.14, startBalloons: 5, maxBalloons: 10, floatHold: 0.5, floatTime: 2.2, maxRise: 8,
   camBack: 8.5, camUp: 2.4, hfov: 96, fovSpeed: 0.25, fovMax: 16,
+  camBackTall: 11, camUpTall: 3.4, vfovTall: 84,   // held upright: further back and higher, to see both sides of the street
   tiltFull: 24,
 };
 const STEP = 1 / 180, R_H = 0.45, STREET = 15;
@@ -132,8 +134,8 @@ const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed 
 const R = (a, b) => a + (b - a) * rnd();
 
 // ============================================================================================
-// RENDERER, VIEW. The game always plays landscape: a touch phone held upright gets the whole
-// game turned sideways (the same as Sadie's Pooper). APP is the game's own size in CSS pixels.
+// RENDERER, VIEW. Played upright on a phone (Simon, 2026-11-19: "I want grapple city to be
+// vertical"); it still fits a sideways screen or a computer window. APP is the game's size in CSS pixels.
 // ============================================================================================
 const app = $('app'), cv = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
@@ -147,24 +149,24 @@ const fillLight = new THREE.DirectionalLight(0x6d7fd0, 0.5); fillLight.position.
 const APP = { w: 800, h: 450, rot: false };
 const toApp = e => APP.rot ? [e.clientY, APP.h - e.clientX] : [e.clientX, e.clientY];
 function resize() {
-  const pw = innerWidth || 800, ph = innerHeight || 450;
-  APP.rot = isTouch && ph > pw;
-  const w = APP.rot ? ph : pw, h = APP.rot ? pw : ph;
-  APP.w = w; APP.h = h;
+  const w = innerWidth || 800, h = innerHeight || 450;
+  APP.rot = false; APP.w = w; APP.h = h;
   app.classList.toggle('short', h < 460);
-  Object.assign(app.style, APP.rot ? { width: w + 'px', height: h + 'px', transform: `translateX(${pw}px) rotate(90deg)` } : { width: '100%', height: '100%', transform: '' });
+  app.classList.toggle('narrow', w < 460);
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
 }
-function setFov(extra) {   // a fixed horizontal view, so wide phones don't get a fish-eye
-  const h = (T.hfov + extra) * Math.PI / 360;
-  camera.fov = 2 * Math.atan(Math.tan(h) / camera.aspect) * 180 / Math.PI;
+const tall = () => camera.aspect < 1;
+function setFov(extra) {
+  // upright: a fixed vertical view; sideways: a fixed horizontal one, so wide screens don't get a fish-eye
+  if (tall()) camera.fov = T.vfovTall + extra;
+  else camera.fov = 2 * Math.atan(Math.tan((T.hfov + extra) * Math.PI / 360) / camera.aspect) * 180 / Math.PI;
   camera.updateProjectionMatrix();
 }
-function goLandscape() {
+function goFullScreen() {   // Android: full screen, held upright (iPhones can't lock, and don't need to)
   if (!isTouch || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('portrait')).catch(() => {});
 }
 
 // ============================================================================================
@@ -911,8 +913,8 @@ function updateCamera(dt, snap) {
   const p = H.p, v = H.v;
   tA.set(v.x, 0, v.z);
   if (tA.lengthSq() > 9) camDir.lerp(tA.normalize(), snap ? 1 : 1 - Math.exp(-2.6 * dt)).normalize();
-  const speed = v.length(), up = balloonMode() ? T.camUp + 1.2 : T.camUp;
-  tB.copy(p).addScaledVector(camDir, -T.camBack).add(tC.set(0, up, 0));
+  const speed = v.length(), up = (tall() ? T.camUpTall : T.camUp) + (balloonMode() ? 1.2 : 0);
+  tB.copy(p).addScaledVector(camDir, -(tall() ? T.camBackTall : T.camBack)).add(tC.set(0, up, 0));
   tD.subVectors(tB, p); const want = tD.length(); tD.divideScalar(want);
   const hit = rayBoxes(p, tD, want, p.z - 20, p.z + 20);   // keep the camera out of buildings
   if (hit != null) tB.copy(p).addScaledVector(tD, Math.max(.8, hit - .4));
@@ -1157,7 +1159,7 @@ function toMenu() {
 function menuRun() { S.mode = 'grapple'; resetWorld((Math.random() * 1e9) | 0, 'grapple'); startHero(); updateCamera(0, true); }
 function pauseGame() { if (S.phase !== 'play') return; S.phase = 'paused'; $('paused').hidden = false; for (const id of [...ptrs.keys()]) lift(id); }
 function play(mode) {
-  audio(); goLandscape();
+  audio(); goFullScreen();
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().catch(() => {});
   startRun(mode);
 }

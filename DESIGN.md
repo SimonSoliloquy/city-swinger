@@ -11,7 +11,7 @@ The template, with one change: the game is 3D, so `index.html` loads three.js fr
 ## The hero
 An original person with a grappling gun on each wrist. Each gun fires a rope that sticks and reels in.
 
-## Controls (phone, held sideways)
+## Controls (phone, held upright)
 - **Hooks:** two, one per wrist. Tap a spot on screen with the left thumb to fire the left hook there, with the right thumb for the right hook. The hook sticks to any solid surface: walls, roof edges, cranes, water tanks.
 - **Holding:** keep the thumb down to stay on that rope. Lift it to let go.
 - **Reeling:** while holding, slide that thumb up to reel in (shorter rope, faster swing) and down to let rope out.
@@ -61,3 +61,5 @@ Answers from the same day:
 - **Running:** auto-run on roofs in both versions; tilt turns.
 - **Parkour in both versions:** vaults, ledge climbs, wall runs, slides under pipes, and rolls on landing. In the grapple version a quick swipe with either thumb does the move (up: jump or vault; down: slide or roll) while a plain tap still fires a hook.
 - Each version keeps its own best distance and leaderboard.
+
+- **Upright (Simon, 2026-11-19: "I want grapple city to be vertical"):** played in portrait on a phone. Nothing is turned sideways any more; the camera sits further back and higher when the screen is tall so both sides of the street stay in view. Android goes full screen locked upright; a sideways screen or a computer window still works.
