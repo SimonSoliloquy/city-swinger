@@ -11,5 +11,7 @@ Live at https://city-swinger.vercel.app. One `index.html`, three.js from a CDN, 
 Local test: `tools/serve.sh`, then open http://127.0.0.1:8151/. In the console, `__game.sim(40)`
 runs the computer player through five cities and reports distances; `__game.trace(30, 11)` prints what
 it does second by second. `#demo-5` starts a run driven by the computer. Never test with headless Chrome.
+With no browser tab to hand, `PATH=/usr/local/bin:$PATH node tools/node_sim.mjs <three.module.js>` runs the same
+tests in Node against stand-ins for the screen (any local copy of three.js will do).
 
 High scores: the shared leaderboard Worker, board `grapple-city` (the first name).

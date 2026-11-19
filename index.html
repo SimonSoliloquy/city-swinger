@@ -94,7 +94,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <script type="module">
 import * as THREE from 'three';
 
-const VERSION = 'v2026-11-19i';
+const VERSION = 'v2026-11-19j';
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -504,6 +504,7 @@ function runSpeed() { return T.roofRun + Math.min(T.runGain, S.dist / 500); }
 
 function startHero() {
   H.v.set(0, 0, 0); H.state = 'air'; H.heading.set(0, 0, 1); H.wallCool = 0; H.rollT = 0;
+  S.fallT = 0; hero.visible = true;
   for (const h of hooks) { h.state = 'off'; h.reel = 0; }
   H.p.set(0, 225, 0); H.v.set(0, 5, 17);
   camDir.set(0, 0, 1); camPos.copy(H.p).add(tA.set(0, 2, -9));
@@ -702,9 +703,21 @@ function land() {   // you land running; a drop rolls by itself and costs no spe
   tA.set(H.v.x, 0, H.v.z); H.heading.copy(tA.lengthSq() > 1 ? tA.normalize() : camDir); towardSunset(H.heading, 1.1);
   if (S.lastVy < -9) { H.rollT = .55; SFX.roll(); } else if (S.lastVy < -4) SFX.step();
 }
+// Falling off the map (Simon, 2026-11-19: "when you fall, you should just go fall through the clouds off
+// the map. you shouldn't hit the bottom"): nothing stops you. The ropes let go, the camera stays above
+// the cloud sea and watches you drop into it and out of sight, and only then does the run end.
 function onFall() {
-  if (S.phase === 'play') endRun();
-  else S.crashed = true;
+  if (S.phase !== 'play') { S.crashed = true; return; }
+  S.phase = 'fall'; S.fallT = 0; SFX.crash();
+  for (const h of hooks) h.state = 'off';
+  $('hint').classList.remove('on'); $('pause').hidden = true;
+  for (const id of [...ptrs.keys()]) lift(id);
+}
+function fallStep(dt) {   // just gravity and air: through the clouds and away
+  S.fallT += dt;
+  H.v.y = Math.max(H.v.y - T.gravity * dt, -70); H.v.x *= 1 - .4 * dt; H.v.z *= 1 - .4 * dt;
+  H.p.addScaledVector(H.v, dt); H.state = 'air';
+  hero.visible = H.p.y > CLOUD - 40;
 }
 // ============================================================================================
 // THE COMPUTER PLAYER: swings behind the menu and drives the tests
@@ -829,9 +842,12 @@ function updateCamera(dt, snap) {
   const hit = rayBoxes(p, tD, want, p.z - 20, p.z + 20);   // keep the camera out of buildings
   if (hit != null) tB.copy(p).addScaledVector(tD, Math.max(.8, hit - .4));
   if (tB.y < CLOUD + 1) tB.y = CLOUD + 1;
-  if (snap) camPos.copy(tB); else camPos.lerp(tB, 1 - Math.exp(-9 * dt));
+  const falling = S.fallT > 0 && (S.phase === 'fall' || S.phase === 'end');
+  if (falling) { /* the camera stays where it was and watches you go */ }
+  else if (snap) camPos.copy(tB); else camPos.lerp(tB, 1 - Math.exp(-9 * dt));
   camera.position.copy(camPos);
-  camera.lookAt(tA.copy(p).addScaledVector(camDir, 5).add(tC.set(0, .9, 0)));
+  if (falling) camera.lookAt(tA.set(p.x, Math.max(p.y, CLOUD - 8), p.z));
+  else camera.lookAt(tA.copy(p).addScaledVector(camDir, 5).add(tC.set(0, .9, 0)));
   setFov(Math.min(T.fovMax, Math.max(0, speed - 12) * T.fovSpeed));
   sky.position.copy(camPos); stars.position.copy(camPos);
   moon.position.copy(camPos).add(tA.set(-380, 520, -820));   // the moon is behind you
@@ -1031,7 +1047,7 @@ function startRun(asBot = false) {
 }
 const BEST = 'gc-best';
 function endRun() {
-  S.phase = 'end'; S.endT = 0; SFX.crash();
+  S.phase = 'end'; S.endT = 0;
   for (const h of hooks) h.state = 'off';
   $('hint').classList.remove('on'); $('pause').hidden = true;
   const d = Math.floor(S.dist), prev = +store.get(BEST) || 0;
@@ -1042,7 +1058,7 @@ function endRun() {
   $('nick').value = (store.get('gc-name') || '').slice(0, 20);
   endRunData = S.bot ? null : { sent: false, run: { player: playerId(), score: d, seconds: Math.round(S.t), hooks: S.hooks, version: VERSION } };
   showBoards($('ebDay'), $('ebAll'), $('endboards'));
-  setTimeout(() => { if (S.phase === 'end') $('end').hidden = false; }, 1100);
+  setTimeout(() => { if (S.phase === 'end') $('end').hidden = false; }, 300);
 }
 function toMenu() {
   S.phase = 'menu'; S.bot = false;
@@ -1141,6 +1157,7 @@ function tick(dt) {
     }
     if (S.phase === 'menu' && (S.crashed || H.p.z > 3000)) menuRun();
   } else acc = 0;
+  if (S.phase === 'fall' || (S.phase === 'end' && S.fallT > 0)) { fallStep(dt); if (S.phase === 'fall' && S.fallT > 1.6) endRun(); }
   if (S.phase === 'end') S.endT += dt;
   updateWorld(H.p.z);
   for (const b of blinkers) b.visible = (performance.now() / 700 | 0) % 2 === 0;
