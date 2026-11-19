@@ -55,7 +55,7 @@ def puff(path):
     yy, xx = np.mgrid[0:h, 0:w]
     alpha[(xx - .293 * w) ** 2 + (yy - .21 * h) ** 2 < (.03 * w) ** 2] = 0   # a stray star SDXL added
     edge = np.clip(np.minimum.reduce([xx, w - 1 - xx, yy, h - 1 - yy]) / (.08 * w), 0, 1)   # nothing reaches the edge
-    rgb = np.clip(a / np.maximum(alpha[..., None], 1e-3), 0, 255)
+    rgb = a   # the background is not black, so the colour is kept as it is
     img = np.dstack([rgb, alpha * edge * 255]).astype(np.uint8)
     Image.fromarray(img, 'RGBA').resize((512, int(512 * h / w)), Image.LANCZOS).save(os.path.join(out, 'puff.webp'), quality=85, method=6)
 
