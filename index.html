@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#070b1c">
+<meta name="description" content="Swing or float across a city of towers above the clouds at night. Don't fall into the clouds.">
+<title>Grapple City</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070b1c'/%3E%3Cpath d='M5 27L21 11' stroke='%23e6eeff' stroke-width='2.5'/%3E%3Cpath d='M21 11l5-5M21 11l6 1M21 11l-1-6' stroke='%23ffd27a' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #070b1c; --paper: #f2efe6; --gold: #ffd27a; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ink); color: var(--paper); overflow: hidden;
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+#app { position: fixed; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; overflow: hidden; }
+#c { display: block; width: 100%; height: 100%; }
+.big { font-family: "Bebas Neue", Impact, sans-serif; letter-spacing: 1px; }
+#hud { position: absolute; top: 10px; left: 0; right: 0; text-align: center; pointer-events: none; }
+#dist { font-size: 40px; line-height: 1; }
+#bals { height: 22px; margin-top: 2px; }
+#bals svg { width: 14px; height: 20px; margin: 0 1px; }
+#tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
+#tools button { width: 40px; height: 40px; padding: 8px; background: rgba(7,11,28,.55); border: 2px solid rgba(242,239,230,.55); color: var(--paper); cursor: pointer; }
+#tools svg { width: 100%; height: 100%; display: block; }
+#hint { position: absolute; left: 0; right: 0; bottom: 18%; text-align: center; font-size: 26px; pointer-events: none; opacity: 0; transition: opacity .4s; }
+#hint.on { opacity: .92; }
+.ring { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 2px solid rgba(242,239,230,.45); border-radius: 50%; pointer-events: none; }
+.ring i { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; background: rgba(242,239,230,.8); border-radius: 50%; }
+.screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4,6,16,.4); }
+.screen[hidden], [hidden] { display: none !important; }
+.card { width: min(540px, 100%); max-height: 100%; overflow: auto; background: rgba(7,11,28,.86); border: 2px solid var(--paper); padding: 18px 22px 14px; text-align: center; }
+h1 { margin: 0; font-size: 64px; line-height: .95; font-weight: 400; }
+h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
+.tag { margin: 6px 0 14px; font-size: 15px; opacity: .85; }
+.btn { font-family: "Bebas Neue", Impact, sans-serif; font-size: 28px; letter-spacing: 1px; background: var(--paper); color: var(--ink); border: 2px solid var(--paper); padding: 6px 26px 4px; cursor: pointer; margin: 4px; }
+.btn.alt { background: transparent; color: var(--paper); }
+.btn.small { font-size: 22px; padding: 3px 16px 1px; }
+.how { margin: 10px 0 0; font-size: 13px; line-height: 1.45; opacity: .78; }
+.line { margin: 8px 0 0; font-size: 15px; }
+.boards { display: flex; gap: 18px; justify-content: center; margin-top: 12px; text-align: left; }
+.board { min-width: 150px; border-top: 2px solid rgba(242,239,230,.5); padding-top: 4px; }
+.board h3 { margin: 0 0 2px; font-family: "Bebas Neue", Impact, sans-serif; font-weight: 400; font-size: 18px; letter-spacing: 1px; opacity: .8; }
+.board ol { margin: 0; padding: 0; list-style-position: inside; font-size: 13px; line-height: 1.5; }
+#namebox { margin-top: 10px; display: flex; gap: 6px; justify-content: center; }
+#nick { font: inherit; font-size: 16px; padding: 6px 8px; width: 170px; background: transparent; color: var(--paper); border: 2px solid rgba(242,239,230,.6); }
+.by { margin: 12px 0 0; font-size: 12px; opacity: .6; }
+.by a { color: inherit; }
+.short h1 { font-size: 46px; } .short h2 { font-size: 40px; } .short .tag { margin: 2px 0 8px; }
+.short .card { padding: 10px 16px 8px; } .short .how { margin-top: 5px; } .short .boards { margin-top: 6px; }
+.short .board li:nth-child(n+4) { display: none; } .short .by { margin-top: 6px; } .short .btn { font-size: 24px; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="c"></canvas>
+  <div id="hud" hidden><div id="dist" class="big">0 m</div><div id="bals"></div></div>
+  <div id="tools">
+    <button id="pause" aria-label="Pause" hidden><svg viewBox="0 0 20 20"><rect x="4" y="3" width="4" height="14" fill="currentColor"/><rect x="12" y="3" width="4" height="14" fill="currentColor"/></svg></button>
+    <button id="mute" aria-label="Sound"></button>
+  </div>
+  <div id="hint" class="big"></div>
+  <div id="rings"></div>
+
+  <div class="screen" id="menu"><div class="card">
+    <h1 class="big">Grapple City</h1>
+    <p class="tag">Cross the towers above the clouds. Don't fall in.</p>
+    <button class="btn" id="playG">Grapple</button><button class="btn" id="playB">Balloons</button>
+    <p class="how" id="howTouch">Grapple: tap a building to shoot a rope, one hook for each thumb. Hold to swing, slide up to reel in. Balloons: left thumb jumps and floats, right thumb lets a balloon go. In both, swipe up to jump, down to slide or roll, and tilt the phone to steer.</p>
+    <p class="how" id="howKeys">Grapple: left and right click shoot a hook at the cursor, hold to swing, the wheel or W and S reel. Balloons: left click or Space jumps and floats, right click or E lets a balloon go. In both, Space jumps, C slides or rolls, A and D steer.</p>
+    <p class="line" id="best"></p>
+    <div class="boards"><div class="board"><h3>Grapple</h3><ol id="topG"></ol></div><div class="board"><h3>Balloons</h3><ol id="topB"></ol></div></div>
+    <p class="by">by <a href="https://simonsoliloquy.com" target="_blank" rel="noopener">simonsoliloquy.com</a></p>
+  </div></div>
+
+  <div class="screen" id="paused" hidden><div class="card">
+    <h2 class="big">Paused</h2>
+    <button class="btn" id="resume">Resume</button><button class="btn alt" id="quit">Menu</button>
+  </div></div>
+
+  <div class="screen" id="end" hidden><div class="card">
+    <h2 class="big" id="enddist">0 m</h2>
+    <p class="line" id="pb"></p>
+    <div id="namebox" hidden><input id="nick" maxlength="20" placeholder="Your name" autocomplete="off"><button class="btn small" id="save">Save</button></div>
+    <p class="line" id="rank"></p>
+    <div class="boards" id="endboards" hidden><div class="board"><h3>Today</h3><ol id="ebDay"></ol></div><div class="board"><h3>All time</h3><ol id="ebAll"></ol></div></div>
+    <div style="margin-top:10px"><button class="btn" id="again">Again</button><button class="btn alt" id="tomenu">Menu</button></div>
+    <p class="by">Built by <a href="https://simonsoliloquy.com" target="_blank" rel="noopener">simonsoliloquy.com</a></p>
+  </div></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+const VERSION = 'v2026-11-19b';
+const $ = id => document.getElementById(id);
+const V3 = THREE.Vector3;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+$('howTouch').hidden = !isTouch; $('howKeys').hidden = isTouch;
+
+// ============================================================================================
+// TUNING. Simon tunes from his play notes (no in-game panel, 2026-11-19). Metres and seconds.
+// ============================================================================================
+const T = {
+  gravity: 24, drag: 0.05, maxSpeed: 62,
+  hookRange: 140, hookSpeed: 340, assistDeg: 8,
+  pump: 7, redirect: 0.6,                 // speed added at the bottom of each arc; share of speed the rope would kill that goes into the swing
+  reelIn: 24, reelOut: 14, minRope: 2.5, maxRope: 150,
+  flingUp: 7, flingFwd: 4,                // letting go near the top of an arc
+  steerAir: 12, steerRope: 15, steerRoof: 2.4,
+  wallGrav: 0.22, wallTime: 1.4, wallMinSpeed: 6, wallKick: 8,
+  roofRun: 11, runGain: 6, jump: 9.5,     // run speed grows by up to runGain over the run
+  slideTime: 0.75, rollWindow: 0.5, hardLand: -17,
+  lift: 0.14, startBalloons: 5, maxBalloons: 10, floatHold: 0.5, floatTime: 2.2, maxRise: 8,
+  camBack: 8.5, camUp: 2.4, hfov: 96, fovSpeed: 0.25, fovMax: 16,
+  tiltFull: 24,
+};
+const STEP = 1 / 180, R_H = 0.45, STREET = 15;
+const CLOUD = 60;                  // the top of the cloud sea; sink into it and the run is over
+const BASE = CLOUD - 30;           // towers start inside the clouds
+
+let seed = 1;
+const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const R = (a, b) => a + (b - a) * rnd();
+
+// ============================================================================================
+// RENDERER, VIEW. The game always plays landscape: a touch phone held upright gets the whole
+// game turned sideways (the same as Sadie's Pooper). APP is the game's own size in CSS pixels.
+// ============================================================================================
+const app = $('app'), cv = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x1f2a5a, 0.0042);
+const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 1400);
+scene.add(new THREE.HemisphereLight(0x7d8fd8, 0x3a4790, 1.0));
+const moonLight = new THREE.DirectionalLight(0xc4d0ff, 1.5); moonLight.position.set(-0.45, 0.75, 0.6); scene.add(moonLight);
+const fillLight = new THREE.DirectionalLight(0x6d7fd0, 0.5); fillLight.position.set(0.6, 0.3, -0.7); scene.add(fillLight);
+
+const APP = { w: 800, h: 450, rot: false };
+const toApp = e => APP.rot ? [e.clientY, APP.h - e.clientX] : [e.clientX, e.clientY];
+function resize() {
+  const pw = innerWidth || 800, ph = innerHeight || 450;
+  APP.rot = isTouch && ph > pw;
+  const w = APP.rot ? ph : pw, h = APP.rot ? pw : ph;
+  APP.w = w; APP.h = h;
+  app.classList.toggle('short', h < 460);
+  Object.assign(app.style, APP.rot ? { width: w + 'px', height: h + 'px', transform: `translateX(${pw}px) rotate(90deg)` } : { width: '100%', height: '100%', transform: '' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+}
+function setFov(extra) {   // a fixed horizontal view, so wide phones don't get a fish-eye
+  const h = (T.hfov + extra) * Math.PI / 360;
+  camera.fov = 2 * Math.atan(Math.tan(h) / camera.aspect) * 180 / Math.PI;
+  camera.updateProjectionMatrix();
+}
+function goLandscape() {
+  if (!isTouch || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+}
+
+// ============================================================================================
+// LOOK: towers of midnight-blue metal with yellow windows, rising out of a sea of cloud at
+// night (Simon, 2026-11-19). Textures are painted in code; ComfyUI art replaces them where better.
+// ============================================================================================
+function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+function tex(c, rep = true) { const t = new THREE.CanvasTexture(c); if (rep) t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+const YELLOWS = ['#ffd27a', '#ffc35a', '#ffe39a', '#ffb948', '#ffcf6a'];
+
+const TILE = 24;   // metres covered by one facade texture (8 by 8 windows)
+function facade(lit) {
+  const [c, g] = canvas(256, 256), [cg, gg] = canvas(256, 256);
+  g.fillStyle = '#25356c'; g.fillRect(0, 0, 256, 256);
+  gg.fillStyle = '#000'; gg.fillRect(0, 0, 256, 256);
+  for (let j = 0; j < 8; j++) {
+    g.fillStyle = '#17204a'; g.fillRect(0, j * 32 + 27, 256, 5);             // floor slabs
+    for (let i = 0; i < 8; i++) {
+      const on = Math.random() < lit, col = YELLOWS[(Math.random() * YELLOWS.length) | 0];
+      const x = i * 32 + 4, y = j * 32 + 4;
+      g.fillStyle = on ? col : '#0e1634'; g.fillRect(x, y, 24, 22);
+      if (!on) { g.fillStyle = 'rgba(120,150,255,.12)'; g.fillRect(x, y, 24, 7); }  // a little sky in the dark glass
+      if (on) { gg.globalAlpha = 0.6 + Math.random() * 0.4; gg.fillStyle = col; gg.fillRect(x, y, 24, 22); gg.globalAlpha = 1; }
+    }
+  }
+  g.fillStyle = '#4a62b0'; for (let i = 0; i < 8; i++) g.fillRect(i * 32, 0, 3, 256);   // bright metal mullions
+  return { map: tex(c), glow: tex(cg) };
+}
+const FAC = [facade(0.34), facade(0.22), facade(0.12)];
+const wallMats = FAC.map(f => new THREE.MeshPhongMaterial({ map: f.map, color: 0xc0ccff, specular: 0x8ea4ff, shininess: 60, emissive: 0xffffff, emissiveMap: f.glow }));
+const roofMat = new THREE.MeshPhongMaterial({ color: 0x1b2350, specular: 0x334080, shininess: 20 });
+const MATS = wallMats.map(w => [w, w, roofMat, roofMat, w, w]);
+const phong = (c, sh = 30) => new THREE.MeshPhongMaterial({ color: c, specular: 0x444a66, shininess: sh });
+const basic = c => new THREE.MeshBasicMaterial({ color: c });
+const tankMat = phong(0x2c3150), poleMat = phong(0x30375a), craneMat = phong(0xb08a2c, 50), antennaMat = phong(0x6a74a0, 60), acMat = phong(0x5d6688, 40), pipeMat = phong(0x8a93b8, 80);
+const redMat = basic(0xff3030), crownMat = basic(0xffd27a), whiteLight = basic(0xfff3d0);
+const UNIT = new THREE.BoxGeometry(1, 1, 1), CYL = new THREE.CylinderGeometry(1, 1, 1, 14), BALL = new THREE.SphereGeometry(1, 12, 9);
+
+function glowTex() {
+  const [c, g] = canvas(64, 64); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return tex(c, false);
+}
+const GLOW = glowTex();
+function cloudTex(size, n, rMin, rMax) {   // soft puffs, drawn wrapped so the texture tiles
+  const [c, g] = canvas(size, size);
+  for (let k = 0; k < n; k++) {
+    const x = Math.random() * size, y = Math.random() * size, r = rMin + Math.random() * (rMax - rMin), a = .05 + Math.random() * .12;
+    for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) {
+      const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
+      gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(x + dx - r, y + dy - r, r * 2, r * 2);
+    }
+  }
+  return tex(c);
+}
+function puffTex() {
+  const [c, g] = canvas(256, 128);
+  for (let k = 0; k < 26; k++) {
+    const x = 40 + Math.random() * 176, y = 50 + Math.random() * 40, r = 18 + Math.random() * 34;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  return tex(c, false);
+}
+
+// sky, stars, moon and a far skyline, all following the camera
+const sky = (() => {
+  const g = new THREE.SphereGeometry(1200, 32, 16), pos = g.attributes.position, col = [];
+  const top = new THREE.Color(0x02040c), mid = new THREE.Color(0x0a1436), low = new THREE.Color(0x2a3a78), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / 1200;
+    if (y < 0.02) c.copy(low); else if (y < 0.3) c.copy(low).lerp(mid, (y - 0.02) / 0.28); else c.copy(mid).lerp(top, Math.min(1, (y - 0.3) / 0.5));
+    col.push(c.r, c.g, c.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  m.renderOrder = -3; scene.add(m); return m;
+})();
+const stars = (() => {
+  const p = [];
+  for (let i = 0; i < 700; i++) { const a = Math.random() * Math.PI * 2, y = 0.12 + Math.random() * 0.88, r = Math.sqrt(1 - y * y); p.push(Math.cos(a) * r * 1150, y * 1150, Math.sin(a) * r * 1150); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  const s = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xdfe6ff, size: 1.6, sizeAttenuation: false, fog: false, depthWrite: false, transparent: true, opacity: .85 }));
+  s.renderOrder = -2; scene.add(s); return s;
+})();
+const moon = (() => {
+  const [c, g] = canvas(128, 128);
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(235,240,255,.55)'); gr.addColorStop(1, 'rgba(235,240,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = '#eef2ff'; g.beginPath(); g.arc(64, 64, 20, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(160,170,210,.35)'; for (const [x, y, r] of [[58, 58, 5], [70, 70, 4], [69, 56, 3]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c, false), fog: false, depthWrite: false, transparent: true }));
+  s.scale.set(220, 220, 1); s.renderOrder = -2; scene.add(s); return s;
+})();
+function skylineTexture() {
+  const [c, g] = canvas(2048, 512);
+  let x = 0;
+  while (x < 2048) {
+    const w = 10 + Math.random() * 34, h = 60 + Math.random() * Math.random() * 300;
+    g.fillStyle = Math.random() < .5 ? '#121b42' : '#16214e'; g.fillRect(x, 512 - h, w, h);
+    if (Math.random() < .3) g.fillRect(x + w / 2 - 1, 512 - h - 26, 2, 26);
+    for (let k = 0; k < h * w / 60; k++) { g.fillStyle = `rgba(255,${190 + (Math.random() * 40 | 0)},110,.8)`; g.fillRect(x + 2 + Math.random() * (w - 4), 512 - h + 3 + Math.random() * (h - 40), 2, 2); }
+    x += w + (Math.random() < .3 ? Math.random() * 14 : 0);
+  }
+  const gr = g.createLinearGradient(0, 400, 0, 512); gr.addColorStop(0, 'rgba(110,125,190,0)'); gr.addColorStop(1, 'rgba(110,125,190,1)');
+  g.fillStyle = gr; g.fillRect(0, 400, 2048, 112);   // the towers' feet vanish into cloud
+  const t = tex(c); t.wrapT = THREE.ClampToEdgeWrapping; t.repeat.set(3, 1); return t;
+}
+const skyline = (() => {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(1000, 1000, 420, 64, 1, true), new THREE.MeshBasicMaterial({ map: skylineTexture(), side: THREE.BackSide, transparent: true, fog: false, depthWrite: false }));
+  m.renderOrder = -1; scene.add(m); return m;
+})();
+// the cloud sea: an opaque floor, a drifting veil above it, and puffs drifting between the towers
+const CLOUDTEX = cloudTex(512, 140, 30, 110);
+const cloudFloor = (() => {
+  const t = CLOUDTEX.clone(); t.repeat.set(10, 10); t.needsUpdate = true;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshBasicMaterial({ color: 0x6f7cb8, map: t }));
+  m.rotation.x = -Math.PI / 2; m.position.y = CLOUD - 2; scene.add(m);
+  const under = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), basic(0x5b67a2)); under.rotation.x = -Math.PI / 2; under.position.y = CLOUD - 2.2; scene.add(under);
+  return { m, t, under };
+})();
+const veil = (() => {
+  const t = CLOUDTEX.clone(); t.repeat.set(6, 6); t.needsUpdate = true;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshBasicMaterial({ color: 0xb4bfef, map: t, transparent: true, opacity: .7, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = CLOUD + 3; scene.add(m); return { m, t };
+})();
+const PUFF = puffTex();
+const puffMats = [0x9aa6dc, 0x8e9bd4, 0xa9b3e6].map(c => new THREE.SpriteMaterial({ map: PUFF, color: c, transparent: true, opacity: .62, depthWrite: false }));
+
+// ============================================================================================
+// THE CITY: an endless street of towers on both sides, made just ahead and dropped behind.
+// Everything solid is an axis-aligned box, so hooks and collisions are exact.
+// Box flags: bld (a tower), low (vault over it), duck (slide under it), spike (pops balloons).
+// ============================================================================================
+const world = new THREE.Group(); scene.add(world);
+let decor = [], boxes = [], pickups = [];
+const GEN = {};
+function addDecor(o, z1) { world.add(o); decor.push({ o, z1 }); return o; }
+function boxGeo(w, h, d, ou, ov) {   // windows stay the same size whatever the building's size
+  const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const i = f * 4 + k; uv.setXY(i, uv.getX(i) * dims[f][0] / TILE + ou, uv.getY(i) * dims[f][1] / TILE + ov); }
+  return g;
+}
+function building(x0, x1, y0, y1, z0, z1, v) {
+  const m = new THREE.Mesh(boxGeo(x1 - x0, y1 - y0, z1 - z0, ((rnd() * 8) | 0) / 8, ((rnd() * 8) | 0) / 8), MATS[v]);
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.userData.own = true;
+  addDecor(m, z1);
+  const b = { x0, x1, y0, y1, z0, z1, bld: true }; boxes.push(b); return b;
+}
+function block(x0, x1, y0, y1, z0, z1, mat, solid = true, flags) {
+  const m = new THREE.Mesh(UNIT, mat); m.scale.set(x1 - x0, y1 - y0, z1 - z0); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  addDecor(m, z1); if (solid) boxes.push({ x0, x1, y0, y1, z0, z1, ...flags }); return m;
+}
+const blinkers = [];
+function light(x, y, z, z1, mat = redMat, s = .45) { const l = new THREE.Mesh(BALL, mat); l.scale.setScalar(s); l.position.set(x, y, z); addDecor(l, z1); if (mat === redMat) blinkers.push(l); }
+function roofProps(b, s) {
+  const top = b.y1, back = s < 0 ? b.x0 : b.x1, inward = -s, w = b.z1 - b.z0, dx = b.x1 - b.x0;
+  let used = false;
+  if (rnd() < 0.35) block(b.x0 - .06, b.x1 + .06, top - 2.4, top - 1.6, b.z0 - .06, b.z1 + .06, crownMat, false);   // a lit crown
+  if (rnd() < 0.3 && w > 10) {   // water tank on legs
+    const cx = back + inward * R(4, 7), cz = R(b.z0 + 4, b.z1 - 4);
+    const t = new THREE.Mesh(CYL, tankMat); t.scale.set(2.8, 5, 2.8); t.position.set(cx, top + 5.5, cz); addDecor(t, b.z1);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(3, 1.6, 14), tankMat); cone.position.set(cx, top + 8.8, cz); cone.userData.own = true; addDecor(cone, b.z1);
+    for (const [ddx, ddz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) block(cx + ddx - .15, cx + ddx + .15, top, top + 3, cz + ddz - .15, cz + ddz + .15, poleMat, false);
+    boxes.push({ x0: cx - 2.9, x1: cx + 2.9, y0: top, y1: top + 9.4, z0: cz - 2.9, z1: cz + 2.9 });
+    used = true;
+  }
+  if (rnd() < 0.24) {   // antenna with a blinking light: pops balloons
+    const ax = R(b.x0 + 2, b.x1 - 2), az = R(b.z0 + 2, b.z1 - 2), ah = R(8, 20);
+    block(ax - .3, ax + .3, top, top + ah, az - .3, az + .3, antennaMat, true, { spike: true });
+    light(ax, top + ah + .4, az, b.z1);
+  }
+  // parkour: air-conditioning boxes to vault, pipes to slide under
+  for (let k = 0; k < (rnd() < .6 ? 1 + (rnd() < .4) : 0); k++) {
+    const cx = R(b.x0 + 3, b.x1 - 3), cz = R(b.z0 + 3, b.z1 - 3), hh = R(1, 1.4);
+    block(cx - 1.2, cx + 1.2, top, top + hh, cz - 1.1, cz + 1.1, acMat, true, { low: true });
+  }
+  if (rnd() < 0.3 && w > 12 && !used) {
+    const pz = R(b.z0 + 4, b.z1 - 4), y0 = top + 1.15;
+    block(b.x0 + .4, b.x1 - .4, y0, y0 + .4, pz - .2, pz + .2, pipeMat, true, { duck: true });
+    for (const px of [b.x0 + .6, b.x1 - .6]) block(px - .1, px + .1, top, y0, pz - .1, pz + .1, poleMat, false);
+  }
+  if (b.z0 > 150 && dx > 12 && rnd() < 0.1) crane(b, s);
+  else if (rnd() < 0.08) {   // a spire
+    const h = R(14, 30), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+    const m = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 8), antennaMat); m.position.set(cx, top + h / 2, cz); m.userData.own = true; addDecor(m, b.z1);
+    boxes.push({ x0: cx - .8, x1: cx + .8, y0: top, y1: top + h, z0: cz - .8, z1: cz + .8, spike: true });
+    light(cx, top + h + .3, cz, b.z1);
+  }
+}
+function crane(b, s) {   // a tower crane whose arm reaches out over the street: a great anchor
+  const top = b.y1, tx = s < 0 ? b.x0 + 3 : b.x1 - 3, tz = (b.z0 + b.z1) / 2, th = R(18, 28);
+  block(tx - 1.5, tx + 1.5, top, top + th, tz - 1.5, tz + 1.5, craneMat, true, { spike: true });
+  const end = s < 0 ? R(-2, 6) : -R(-2, 6), cj = tx + s * 10;
+  block(Math.min(tx, end), Math.max(tx, end), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { spike: true });
+  block(Math.min(tx, cj), Math.max(tx, cj), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { spike: true });
+  block(cj - s * 3, cj, top + th - 3, top + th, tz - 1.2, tz + 1.2, poleMat);
+  light(end, top + th + 2.1, tz, b.z1, redMat, .5);
+}
+// balloons to collect (balloons version only)
+const BALLOON_COLS = [0xff4d5e, 0xffd23f, 0x3fa7ff, 0x5ad66b, 0xff8a3d, 0xb36bff, 0xff6fb5, 0xf2f2f2, 0x34d6c4, 0xff4d5e];
+const balloonMats = BALLOON_COLS.map(c => new THREE.MeshPhongMaterial({ color: c, specular: 0xffffff, shininess: 90, emissive: c, emissiveIntensity: .18 }));
+const BALLOON_GEO = new THREE.SphereGeometry(.42, 14, 10).scale(1, 1.18, 1);
+function pickup(x, y, z) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(BALLOON_GEO, balloonMats[(rnd() * balloonMats.length) | 0]); g.add(m);
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, 1.1, 3).translate(0, -1, 0), basic(0xdddddd)); g.add(str);
+  g.position.set(x, y, z); addDecor(g, z);
+  pickups.push({ g, p: g.position, taken: false, bob: rnd() * 6 });
+}
+function genSide(s, zEnd) {
+  const i = s < 0 ? 0 : 1, balloons = GEN.mode === 'balloon';
+  while (GEN.z[i] < zEnd) {
+    const z0 = GEN.z[i], early = z0 < 240;
+    if (!early && rnd() < 0.05) { GEN.z[i] += R(30, 45); continue; }   // an open gap: only the other side
+    const w = R(16, 36), depth = R(18, 30), set = rnd() < 0.3 ? R(1, 4) : 0;
+    let h;
+    if (balloons) {   // mostly stepping down; now and then a tall one, with balloons in front to rise on
+      const rise = !early && rnd() < 0.16;
+      h = GEN.h[i] = clamp(rise ? GEN.h[i] + R(14, 30) : GEN.h[i] - R(0, 10), CLOUD + 45, 320);
+      if (rise) GEN.rise[i] = true;
+    } else h = GEN.h[i] = clamp(GEN.h[i] + R(-35, 35), early ? 190 : CLOUD + 60, 320);
+    const face = STREET + set, back = face + depth;
+    const x0 = s < 0 ? -back : face, x1 = s < 0 ? -face : back, z1 = z0 + w, v = (rnd() * 3) | 0;
+    if (GEN.rise[i] && balloons) {   // a stack of balloons to grab just before the tall tower
+      GEN.rise[i] = false;
+      for (let k = 0; k < 5; k++) pickup((x0 + x1) / 2 + R(-2.5, 2.5), GEN.lastTop[i] + 1.5 + k * 2.2, z0 - 3 - k * 2.5);
+    }
+    if (h > CLOUD + 80 && rnd() < 0.3) {   // a podium with a tower set back on it
+      const hp = BASE + (h - BASE) * R(.55, .8), inset = R(3, 6);
+      building(x0, x1, BASE, hp, z0, z1, v);
+      roofProps(building(s < 0 ? x0 + 2 : x0 + inset, s < 0 ? x1 - inset : x1 - 2, hp, h, z0 + 2, z1 - 2, v), s);
+    } else roofProps(building(x0, x1, BASE, h, z0, z1, v), s);
+    const r = rnd(), gap = balloons ? (r < 0.45 ? R(0, 1) : r < 0.8 ? R(5, 11) : R(13, 22)) : (r < 0.55 ? R(0, 1.5) : r < 0.87 ? R(5, 12) : R(16, 28));
+    if (balloons && gap > 4 && rnd() < .35) pickup((x0 + x1) / 2 + R(-4, 4), h + R(1, 5), z1 + gap / 2);
+    GEN.lastTop[i] = h;
+    GEN.z[i] = z1 + gap;
+  }
+}
+function genBridges(zEnd) {   // sky bridges across the street between two tall towers
+  while (GEN.bridge < zEnd) {
+    const z = GEN.bridge; GEN.bridge += R(110, 210);
+    let hl = 0, hr = 0;
+    for (const b of boxes) if (b.bld && b.z0 <= z && b.z1 >= z + 6) {
+      if (b.x1 <= -STREET + .01 && b.x1 > -STREET - 4.5) hl = Math.max(hl, b.y1);
+      else if (b.x0 >= STREET - .01 && b.x0 < STREET + 4.5) hr = Math.max(hr, b.y1);
+    }
+    const top = Math.min(hl, hr); if (top < CLOUD + 40) continue;
+    const y0 = R(CLOUD + 20, top - 8);
+    const m = new THREE.Mesh(boxGeo(38, 3.5, 6, 0, .5), MATS[0]); m.position.set(0, y0 + 1.75, z + 3); m.userData.own = true; addDecor(m, z + 6);
+    boxes.push({ x0: -19, x1: 19, y0, y1: y0 + 3.5, z0: z, z1: z + 6 });
+  }
+}
+function genPuffs(zEnd) {
+  while (GEN.puff < zEnd) {
+    const z = GEN.puff; GEN.puff += R(14, 30);
+    const high = rnd() < .25, sp = new THREE.Sprite(puffMats[(rnd() * 3) | 0]);
+    const sc = R(50, 120); sp.scale.set(sc, sc * R(.3, .5), 1);
+    sp.position.set(R(-90, 90), high ? R(CLOUD + 40, 260) : R(CLOUD + 2, CLOUD + 24), z); addDecor(sp, z + 40);
+  }
+}
+function disposeDecor(d) { world.remove(d.o); if (d.o.userData.own) d.o.geometry.dispose(); }
+function resetWorld(sd, mode) {
+  seed = sd; for (const d of decor) disposeDecor(d); decor = []; boxes = []; pickups = []; blinkers.length = 0;
+  Object.assign(GEN, { mode, z: [-90, -90], h: [215, 215], lastTop: [215, 215], rise: [false, false], bridge: 160, puff: -120 });
+  updateWorld(0);
+}
+function updateWorld(z) {
+  const ahead = z + 430;
+  genSide(-1, ahead); genSide(1, ahead); genBridges(ahead - 40); genPuffs(ahead);
+  const behind = z - 160;
+  if (decor.length && decor[0].z1 < behind || boxes.length > 1200) {
+    decor = decor.filter(d => d.z1 >= behind || (disposeDecor(d), false));
+    boxes = boxes.filter(b => b.z1 >= behind);
+    pickups = pickups.filter(p => p.p.z >= behind);
+  }
+}
+function rayBoxes(o, d, maxT, zMin = -1e9, zMax = 1e9) {   // nearest box hit along a ray
+  let best = maxT, hit = null;
+  for (const b of boxes) {
+    if (b.z1 < zMin || b.z0 > zMax) continue;
+    let t0 = 0, t1 = best, ok = true;
+    for (const [oa, da, mn, mx] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {
+      if (Math.abs(da) < 1e-9) { if (oa < mn || oa > mx) { ok = false; break; } continue; }
+      let ta = (mn - oa) / da, tb = (mx - oa) / da; if (ta > tb) [ta, tb] = [tb, ta];
+      if (ta > t0) t0 = ta; if (tb < t1) t1 = tb; if (t0 > t1) { ok = false; break; }
+    }
+    if (ok && t0 > 0.01 && t0 < best) { best = t0; hit = b; }
+  }
+  return hit ? best : null;
+}
+function roofAt(x, z, y) {   // the highest roof under a point, no higher than y
+  let best = null;
+  for (const b of boxes) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && b.y1 <= y + .6 && (!best || b.y1 > best.y1) && !b.duck) best = b;
+  return best;
+}
+
+// ============================================================================================
+// THE HERO
+// ============================================================================================
+const S = { phase: 'menu', mode: 'grapple', dist: 0, startZ: 0, t: 0, hooks: 0, crashed: false, bot: false, tiltOK: false, tiltRaw: 0, tiltZero: null,
+  keySteer: 0, keyReel: 0, wheelT: 0, wheelDir: 0, hint: 0, hintT: 0, reeled: false, runPhase: 0, stepT: 0, tickT: 0, endT: 0, lastVy: 0,
+  balloons: 0, popCool: 0, float: false, floatT: 0, gotBalloons: 0, lostBalloons: 0 };
+const H = { p: new V3(), v: new V3(), state: 'air', wallN: new V3(), wallB: null, wallT: 0, wallCool: 0, roof: null, heading: new V3(0, 0, 1), steer: 0,
+  slideT: 0, rollWin: 0, rollT: 0, stumbleT: 0, vaultT: 0, bonkCool: 0, climbT: 0, climbOK: true, climbCool: 0 };
+const hooks = [0, 1].map(i => ({ i, state: 'off', a: new V3(), L: 0, t: 0, reel: 0, reelV: 0, ptr: null, slide: 0, dist: 0 }));
+const camDir = new V3(0, 0, 1), camPos = new V3(), Y = new V3(0, 1, 0);
+const tA = new V3(), tB = new V3(), tC = new V3(), tD = new V3(), tN = new V3();
+const balloonMode = () => S.mode === 'balloon';
+
+function rightOf(f, out) { return out.set(-f.z, 0, f.x).normalize(); }
+function handPos(i, out) { rightOf(camDir, out); return out.multiplyScalar(i === 0 ? -0.32 : 0.32).add(H.p).setY(H.p.y + 0.9); }
+function runSpeed() { return (T.roofRun + Math.min(T.runGain, S.dist / 500)) * (H.stumbleT > 0 ? .4 : 1); }
+
+function startHero() {
+  H.v.set(0, 0, 0); H.state = 'air'; H.heading.set(0, 0, 1); H.wallCool = 0; H.slideT = H.rollWin = H.rollT = H.stumbleT = H.vaultT = 0;
+  for (const h of hooks) { h.state = 'off'; h.reel = 0; h.ptr = null; h.slide = 0; }
+  if (balloonMode()) {   // start on the roof of the first tower on the left
+    const b = roofAt(-STREET - 8, 6, 1e4) || { y1: 215 };
+    H.p.set(-STREET - 8, b.y1 + R_H + .05, 6); H.v.set(0, 0, T.roofRun);
+  } else { H.p.set(0, 225, 0); H.v.set(0, 5, 17); }
+  camDir.set(0, 0, 1); camPos.copy(H.p).add(tA.set(0, 2, -9));
+  S.dist = 0; S.startZ = H.p.z; S.t = 0; S.hooks = 0; S.crashed = false;
+  S.balloons = balloonMode() ? T.startBalloons : 0; S.popCool = 0; S.float = false; S.floatT = 0; S.gotBalloons = S.lostBalloons = 0;
+  drawBalloons(true);
+}
+
+// ---------- hooks ----------
+const raycaster = new THREE.Raycaster();
+function aimHit(x, y) {   // the ray from the camera through the tapped point, helped by a small cone
+  raycaster.setFromCamera({ x: x / APP.w * 2 - 1, y: -(y / APP.h) * 2 + 1 }, camera);
+  const o = raycaster.ray.origin, d = raycaster.ray.direction.clone();
+  const zMin = H.p.z - 100, zMax = H.p.z + 300;
+  const at = dir => { const t = rayBoxes(o, dir, 400, zMin, zMax); if (t == null) return null; const p = o.clone().addScaledVector(dir, t); return p.distanceTo(H.p) <= T.hookRange ? p : null; };
+  let p = at(d); if (p) return p;
+  const u = new V3().crossVectors(d, Math.abs(d.y) < .9 ? Y : new V3(1, 0, 0)).normalize(), w = new V3().crossVectors(d, u);
+  for (const deg of [2, 4, 6, T.assistDeg]) {
+    const k = Math.tan(deg * Math.PI / 180); let best = null, bd = 1e9;
+    for (let a = 0; a < 12; a++) {
+      const q = d.clone().addScaledVector(u, Math.cos(a * Math.PI / 6) * k).addScaledVector(w, Math.sin(a * Math.PI / 6) * k).normalize();
+      const hp = at(q); if (hp) { const dd = hp.distanceTo(H.p); if (dd < bd) { bd = dd; best = hp; } }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+function leaveSurface() {   // a hook taking hold on a wall or roof pulls you off it
+  if (H.state === 'wall') { H.v.addScaledVector(H.wallN, T.wallKick); H.v.y = Math.max(H.v.y, 0) + 4; H.state = 'air'; H.wallCool = 0.35; SFX.step(); }
+  else if (H.state === 'roof') { H.v.y = Math.max(H.v.y, 7); H.state = 'air'; SFX.step(); }
+}
+function fireAt(i, point) {
+  const h = hooks[i];
+  if (!point) { h.state = 'miss'; h.t = 0; handPos(i, h.a); h.a.add(tA.copy(camDir).multiplyScalar(40)).setY(h.a.y + 18); SFX.miss(); return; }
+  h.state = 'fly'; h.a.copy(point); h.t = 0; h.reel = 0; h.dist = handPos(i, tA).distanceTo(point); S.hooks++; SFX.fire();
+}
+function fire(i, x, y) { fireAt(i, aimHit(x, y)); }
+function release(i, quiet) {
+  const h = hooks[i];
+  if (h.state === 'on' && !quiet) {
+    if (hooks[1 - i].state !== 'on' && H.state === 'air') fling(h);
+    SFX.release();
+  }
+  if (h.state !== 'miss' || quiet) h.state = 'off';
+}
+function fling(h) {   // letting go near the top of an arc throws you forward and up
+  tC.subVectors(h.a, H.p).normalize();
+  const k = 1 - Math.max(0, tC.y), v = H.v;
+  if (v.y > -4) v.y += T.flingUp * k;
+  tD.set(v.x, 0, v.z); const l = tD.length(); if (l > 1) v.addScaledVector(tD, T.flingFwd * k / l);
+}
+
+// ---------- parkour moves ----------
+function jump() {
+  if (H.state === 'roof') { H.v.y = T.jump; tA.set(H.v.x, 0, H.v.z); const l = tA.length(); if (l > .1) H.v.addScaledVector(tA, 1.5 / l); H.state = 'air'; H.slideT = 0; SFX.jump(); return true; }
+  if (H.state === 'wall') { leaveSurface(); SFX.jump(); return true; }
+  return false;
+}
+function duck() {
+  if (H.state === 'roof') { if (H.slideT <= 0) SFX.slide(); H.slideT = T.slideTime; }
+  else H.rollWin = T.rollWindow;
+}
+function popBalloon(why) {
+  if (S.balloons <= 0) return;
+  S.balloons--; S.lostBalloons++; drawBalloons(); if (why === 'pop') { SFX.pop(); burst(); } else { SFX.letGo(); letGoVisual(); }
+}
+
+// ---------- physics, 180 steps a second ----------
+function constrain(h, first) {
+  const p = H.p, v = H.v;
+  tC.subVectors(p, h.a); const d = tC.length(); if (d <= h.L || d < 1e-4) return;
+  tC.divideScalar(d); p.copy(h.a).addScaledVector(tC, h.L);
+  const vr = v.dot(tC);
+  if (vr > -h.reelV) {
+    const before = v.length();
+    v.addScaledVector(tC, -vr - h.reelV);   // a length limit, never a spring: no bounce, no yank
+    if (first) { const after = v.length(), want = after + (before - after) * T.redirect; if (after > 0.5 && want > after) v.multiplyScalar(want / after); }
+  }
+}
+function step(dt) {
+  const p = H.p, v = H.v;
+  for (const h of hooks) {
+    if (h.state === 'fly') { h.t += dt; if (h.t * T.hookSpeed >= h.dist) { h.state = 'on'; h.L = Math.min(T.maxRope, p.distanceTo(h.a)); leaveSurface(); SFX.attach(); if (S.hint === 1) hintNext(); } }
+    else if (h.state === 'miss') { h.t += dt; if (h.t > 0.32) h.state = 'off'; }
+  }
+  const on = hooks.filter(h => h.state === 'on');
+  for (const k of ['wallCool', 'slideT', 'rollWin', 'rollT', 'stumbleT', 'vaultT', 'bonkCool', 'climbT', 'climbCool']) H[k] = Math.max(0, H[k] - dt);
+  if (on.length || H.state === 'wall') H.climbOK = true;
+  S.popCool = Math.max(0, S.popCool - dt);
+  // gravity: lighter on a wall, and lighter with every balloon
+  let g = H.state === 'wall' ? T.wallGrav * (H.wallT > T.wallTime * .6 ? 2.5 : 1) : 1;
+  if (balloonMode()) {
+    g *= 1 - S.balloons * T.lift;
+    if (S.float && H.state === 'air' && S.floatT < T.floatTime) { S.floatT += dt; if (v.y < 3) g *= T.floatHold; }
+  }
+  v.y -= T.gravity * g * dt;
+  if (v.y > T.maxRise && g < 0) v.y = T.maxRise;
+  if (H.state !== 'roof') v.addScaledVector(rightOf(camDir, tA), H.steer * (on.length ? T.steerRope : T.steerAir) * dt);
+  for (const h of on) {   // the pump: speed builds through the bottom of each arc
+    tC.subVectors(h.a, p); const len = tC.length(); if (len < .01) continue; tC.divideScalar(len);
+    if (tC.y > 0 && len >= h.L - .4 && H.state === 'air') {
+      tD.copy(v).addScaledVector(tC, -v.dot(tC)); const tl = tD.length();
+      if (tl > 2) v.addScaledVector(tD, T.pump * tC.y * dt / tl);
+    }
+  }
+  for (const h of on) {   // reeling: a shorter rope; when it's tight the swing speeds up like a shortened pendulum
+    const r = clamp(h.reel + S.keyReel, -1, 1);
+    h.reelV = r > 0 ? r * T.reelIn : 0;
+    if (r === 0) continue;
+    const d = p.distanceTo(h.a), L0 = h.L;
+    h.L = r > 0 ? Math.max(T.minRope, h.L - r * T.reelIn * dt) : Math.min(T.maxRope, h.L - r * T.reelOut * dt);
+    if (r > 0 && d >= L0 - .3 && h.L < L0) {
+      tC.subVectors(h.a, p).normalize(); const vr = v.dot(tC);
+      tD.copy(v).addScaledVector(tC, -vr).multiplyScalar(Math.min(1.02, L0 / h.L) - 1); v.add(tD);
+    }
+    if (r > 0) S.reeled = true;
+  }
+  const sp = v.length();
+  v.multiplyScalar(Math.max(0, 1 - T.drag * dt));
+  if (sp > T.maxSpeed) v.multiplyScalar(T.maxSpeed / sp);
+  p.addScaledVector(v, dt);
+  for (let it = 0; it < 2; it++) for (const h of on) constrain(h, it === 0);
+  collide(dt);
+  if (balloonMode()) balloonTouches();
+}
+const NORM = [new V3(-1, 0, 0), new V3(1, 0, 0), new V3(0, -1, 0), new V3(0, 1, 0), new V3(0, 0, -1), new V3(0, 0, 1)];
+function sphereBox(cx, cy, cz, r, b) { const x = clamp(cx, b.x0, b.x1) - cx, y = clamp(cy, b.y0, b.y1) - cy, z = clamp(cz, b.z0, b.z1) - cz; return x * x + y * y + z * z < r * r; }
+function collide(dt) {
+  const p = H.p, v = H.v, was = H.state, hs0 = Math.hypot(v.x, v.z);
+  if (p.y < CLOUD - 1.5) { onFall(); return; }
+  let roof = null, wall = null, mantle = null, wallInto = 0;
+  for (const b of boxes) {
+    if (b.z1 < p.z - 2.5 || b.z0 > p.z + 2.5 || b.x1 < p.x - 2.5 || b.x0 > p.x + 2.5 || b.y1 < p.y - 2 || b.y0 > p.y + 3) continue;
+    if (b.duck) {   // pipes at head height: slide under them or bump your head
+      if (H.slideT <= 0 && H.rollT <= 0 && H.bonkCool <= 0 && sphereBox(p.x, p.y + .9, p.z, .32, b)) { v.x *= .15; v.z *= .15; H.stumbleT = .6; H.bonkCool = .8; SFX.bonk(); }
+      continue;
+    }
+    const cx = clamp(p.x, b.x0, b.x1), cy = clamp(p.y, b.y0, b.y1), cz = clamp(p.z, b.z0, b.z1);
+    const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz, d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 >= (R_H + .06) ** 2) continue;
+    let n;
+    if (d2 > 1e-10) {
+      const d = Math.sqrt(d2); n = tN.set(dx / d, dy / d, dz / d);
+      if (d < R_H) p.set(cx, cy, cz).addScaledVector(n, R_H);
+    } else {   // inside: out through the nearest face
+      const pen = [p.x - b.x0, b.x1 - p.x, p.y - b.y0, b.y1 - p.y, p.z - b.z0, b.z1 - p.z];
+      let k = 0; for (let j = 1; j < 6; j++) if (pen[j] < pen[k]) k = j;
+      n = tN.copy(NORM[k]);
+      if (k === 0) p.x = b.x0 - R_H; else if (k === 1) p.x = b.x1 + R_H; else if (k === 2) p.y = b.y0 - R_H; else if (k === 3) p.y = b.y1 + R_H; else if (k === 4) p.z = b.z0 - R_H; else p.z = b.z1 + R_H;
+    }
+    const vn = v.dot(n); if (vn < 0) v.addScaledVector(n, -vn);
+    if (n.y > .7) roof = b;
+    else if (Math.abs(n.y) < .4) {
+      const rise = b.y1 - (p.y - R_H);   // how far the top is above your feet
+      if (rise > 0 && rise < 2.7 && (hs0 > 3 || H.climbT > 0) && (was === 'roof' || was === 'air') && v.y < 9.5) mantle = { b, rise, n: n.clone() };
+      else if (!wall) { wall = b; wallInto = -vn; H.wallN.set(n.x, 0, n.z).normalize(); }
+    }
+  }
+  if (mantle) {   // vault over a low box, or pull yourself up onto a ledge
+    v.y = Math.max(v.y, mantle.rise < 1.6 ? 6.5 : 9);
+    tA.set(v.x, 0, v.z); const l = tA.length();
+    const dir = H.climbT > 0 || l < .5 ? tA.set(-mantle.n.x, 0, -mantle.n.z).normalize() : tA.divideScalar(l);
+    const hs = H.climbT > 0 ? Math.max(hs0, runSpeed() * .7) : hs0;
+    v.x = dir.x * hs; v.z = dir.z * hs; H.heading.copy(dir);
+    H.state = 'air'; H.vaultT = .35; H.climbT = 0; SFX.vault();
+  } else if (wall && was !== 'wall' && H.climbOK && H.climbCool <= 0 && wallInto > 5 && H.wallCool <= 0 && Math.hypot(v.x, v.z) < 4) {
+    // running straight into a wall: a few steps up it, to catch the ledge if it's in reach
+    v.y = Math.max(v.y, 8.5); H.climbOK = false; H.climbT = .9; H.climbCool = 1.5; H.state = 'air'; SFX.step();
+  } else if (roof) {
+    if (was !== 'roof') land();
+    H.state = 'roof'; H.roof = roof; S.floatT = 0; H.climbOK = true;
+    H.heading.applyAxisAngle(Y, -H.steer * T.steerRoof * dt);
+    if (wall) {   // a wall too tall to climb: run along it instead of into it
+      const into = H.heading.dot(H.wallN);
+      if (into < 0) { H.heading.addScaledVector(H.wallN, -into); if (H.heading.lengthSq() < .01) rightOf(H.wallN, H.heading); H.heading.normalize(); }
+    }
+    const base = runSpeed();
+    let hs = Math.max(Math.hypot(v.x, v.z) * (1 - (H.slideT > 0 ? .15 : .6) * dt), base);
+    if (H.stumbleT > 0) hs = Math.min(hs, base);
+    v.x = H.heading.x * hs; v.z = H.heading.z * hs; if (v.y < 0) v.y = 0;
+  } else if (wall && H.wallCool <= 0 && H.vaultT <= 0) {
+    tA.copy(v).addScaledVector(H.wallN, -v.dot(H.wallN)); tA.y = Math.max(0, tA.y);   // falling down a wall is not running on it
+    if (was === 'wall' || tA.length() >= T.wallMinSpeed) {
+      if (was !== 'wall') { H.wallT = 0; SFX.step(); }
+      H.state = 'wall'; H.wallB = wall; H.wallT += dt;
+      v.addScaledVector(H.wallN, -2 * dt);   // stay against it
+      if (H.wallT > T.wallTime) { H.state = 'air'; H.wallCool = .5; v.addScaledVector(H.wallN, 3); }
+    } else if (was === 'wall') H.state = 'air';
+  } else {
+    if (was === 'wall' && H.wallB && p.y > H.wallB.y1 - 1.2) { v.y = Math.max(v.y, 7); v.addScaledVector(H.wallN, -3); }   // over the top: up onto the roof
+    H.state = 'air';
+  }
+  S.lastVy = v.y;
+}
+function land() {   // a big drop needs a roll (swipe down just before landing), or you stumble
+  const vy = S.lastVy;
+  tA.set(H.v.x, 0, H.v.z); H.heading.copy(tA.lengthSq() > 1 ? tA.normalize() : camDir);
+  if (vy < T.hardLand) {
+    if (H.rollWin > 0) { H.rollT = .55; SFX.roll(); }
+    else { H.stumbleT = .55; H.v.x *= .35; H.v.z *= .35; SFX.land(); }
+  } else if (vy < -8) SFX.step();
+}
+function onFall() {
+  if (S.phase === 'play') endRun();
+  else S.crashed = true;
+}
+// balloons: grab the ones floating about; spikes and birds pop yours
+const bunch = new V3();
+function balloonTouches() {
+  bunch.copy(H.p); bunch.y += 2.7;
+  for (const pk of pickups) {
+    if (pk.taken || S.balloons >= T.maxBalloons) continue;
+    if (pk.p.distanceToSquared(H.p) < 2.4 * 2.4 || pk.p.distanceToSquared(bunch) < 2 * 2) {
+      pk.taken = true; pk.g.visible = false; S.balloons++; S.gotBalloons++; drawBalloons(); SFX.pickup();
+    }
+  }
+  if (S.popCool > 0 || S.balloons <= 0) return;
+  for (const b of boxes) if (b.spike && sphereBox(bunch.x, bunch.y, bunch.z, 1.1, b)) { popBalloon('pop'); S.popCool = .6; return; }
+  for (const bd of birds) if (bd.g.visible && bd.g.position.distanceToSquared(bunch) < 1.6 * 1.6) { popBalloon('pop'); S.popCool = .6; bd.scatter = 1; return; }
+}
+
+// ============================================================================================
+// THE COMPUTER PLAYERS: the grapple one plays behind the menu; both drive the tests
+// ============================================================================================
+const B = { t: 0, next: 0 };
+function botThink(dt) {
+  if (balloonMode()) return botBalloon(dt);
+  const p = H.p, v = H.v; B.t += dt;
+  const ax = -(p.x * .12 + v.x * .12);
+  H.steer = clamp(ax * rightOf(camDir, tA).x, -1, 1);
+  const on = hooks.find(h => h.state === 'on' || h.state === 'fly');
+  if (on) {
+    if (on.state !== 'on') return;
+    if (p.z > on.a.z + 2 && v.y > 0 && (on.a.y - p.y) < on.L * .55) { release(on.i); B.t = 0; return; }
+    on.reel = p.y < CLOUD + 25 ? 1 : p.y < CLOUD + 50 ? .5 : 0;
+  } else if ((v.y < 1 || H.state !== 'air') && B.t > .15) {
+    const t = botAnchor(); if (t) { fireAt(B.next, t); B.next ^= 1; B.t = 0; }
+  }
+}
+function botAnchor() {
+  const p = H.p;
+  for (const ahead of [26, 34, 44, 20, 56]) {
+    const z = p.z + ahead + Math.max(0, H.v.z) * .3;
+    let best = null, bh = -1e9;
+    for (const b of boxes) {
+      if (b.z0 > z || b.z1 < z || b.y1 < p.y + 6) continue;
+      const fx = b.x1 <= 0 ? b.x1 : b.x0 >= 0 ? b.x0 : null, over = b.x0 < 0 && b.x1 > 0;
+      if (fx == null && !over) continue;
+      const pt = over ? new V3(clamp(p.x, b.x0, b.x1), b.y0, z) : new V3(fx, Math.min(b.y1 - .5, p.y + 24), z);
+      if (pt.distanceTo(p) > T.hookRange * .9) continue;
+      const score = pt.y - Math.abs(pt.x - p.x) * .3;
+      if (score > bh) { bh = score; best = pt; }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+function botBalloon(dt) {   // stay on the row, jump at edges, float across, grab balloons, let go when too light
+  const p = H.p, v = H.v, row = Math.sign(p.x || -1) * (STREET + 12);
+  let tx = row;
+  const pk = pickups.find(k => !k.taken && Math.sign(k.p.x) === Math.sign(row) && k.p.z > p.z + 2 && k.p.z < p.z + 30 && Math.abs(k.p.y - p.y) < 25);
+  if (pk) tx = pk.p.x;
+  H.steer = clamp(-((p.x - tx) * .08 + v.x * .25) * rightOf(camDir, tA).x, -1, 1);
+  if (H.state === 'roof') {
+    S.float = false;
+    const ahead = roofAt(p.x + v.x * .1, p.z + v.z * .1 + .7, p.y);
+    if (!ahead || ahead.y1 < p.y - R_H - .5) { jump(); S.float = true; }
+    else if (ahead && H.roof && ahead !== H.roof && ahead.y1 > H.roof.y1 + 2.7) jump();
+  } else S.float = true;
+  const under = roofAt(p.x, p.z + 18, p.y + 40);
+  if (S.balloons > 6 && v.y > 3 && under && p.y > under.y1 + 15) popBalloon('let');
+}
+
+// ============================================================================================
+// THE HERO, DRAWN: a person in a dark jacket with a grappling gun on each wrist,
+// or a backpack of balloons
+// ============================================================================================
+const hero = new THREE.Group(); scene.add(hero);
+const jacket = phong(0x2b3242), trousers = phong(0x1b1e26), skin = phong(0xc99a7c), hair = phong(0x1a1412), accent = basic(0xffd27a), gunMat = phong(0x5a6070, 70);
+const part = (geo, mat, x, y, z, parent = hero) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+const body = new THREE.Group(); hero.add(body);
+part(new THREE.CapsuleGeometry(.22, .42, 4, 10), jacket, 0, .72, 0, body);
+part(new THREE.BoxGeometry(.06, .4, .03), accent, 0, .74, -.215, body);
+part(new THREE.SphereGeometry(.17, 14, 10), skin, 0, 1.13, .02, body);
+part(new THREE.SphereGeometry(.178, 14, 10, 0, Math.PI * 2, 0, Math.PI * .55), hair, 0, 1.15, -.01, body);
+const pack = part(new THREE.BoxGeometry(.34, .42, .2), phong(0x3a2f28), 0, .78, -.3, body);
+const limb = (len, r, mat, gun) => {
+  const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * .85, len, 8).translate(0, -len / 2, 0), mat); g.add(m);
+  if (gun) { g.add(new THREE.Mesh(new THREE.BoxGeometry(.13, .2, .13).translate(0, -len + .04, 0), gunMat)); g.add(new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .14).translate(0, -len + .1, 0), accent)); g.userData.gun = g.children.slice(1); }
+  return g;
+};
+const arms = [-1, 1].map(s => { const a = limb(.6, .065, jacket, true); a.position.set(s * .27, .93, 0); body.add(a); return a; });
+const legs = [-1, 1].map(s => { const l = limb(.82, .085, trousers, false); l.position.set(s * .11, .38, 0); body.add(l); return l; });
+body.position.y = -.1;
+// the balloon bunch, tied to the backpack
+const bunchG = new THREE.Group(); scene.add(bunchG);
+const bunchBalloons = BALLOON_COLS.map((c, k) => {
+  const m = new THREE.Mesh(BALLOON_GEO, balloonMats[k]); const a = k * 2.4, r = k ? .35 + (k % 3) * .22 : 0;
+  m.userData.home = new V3(Math.cos(a) * r, 2.5 + (k % 4) * .28, Math.sin(a) * r); bunchG.add(m); return m;
+});
+const strings = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xd8dcef, transparent: true, opacity: .7 }));
+strings.geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(BALLOON_COLS.length * 6), 3)); scene.add(strings);
+const freed = [];   // balloons let go or popped, drifting off
+function drawBalloons() {
+  bunchBalloons.forEach((m, k) => m.visible = balloonMode() && k < S.balloons);
+  pack.visible = balloonMode(); strings.visible = balloonMode();
+  arms.forEach(a => a.userData.gun.forEach(g => g.visible = !balloonMode()));
+  $('bals').innerHTML = balloonMode() ? Array.from({ length: S.balloons }, (_, k) => `<svg viewBox="0 0 14 20"><ellipse cx="7" cy="7" rx="5.5" ry="6.5" fill="#${BALLOON_COLS[k].toString(16).padStart(6, '0')}"/><path d="M7 13.5v6" stroke="#d8dcef"/></svg>`).join('') : '';
+}
+function letGoVisual() { const m = bunchBalloons[S.balloons]; const f = m.clone(); m.getWorldPosition(f.position); scene.add(f); freed.push({ m: f, t: 0, pop: false }); }
+function burst() { const m = bunchBalloons[S.balloons]; const f = new THREE.Mesh(BALL, basic(0xffffff)); m.getWorldPosition(f.position); f.scale.setScalar(.5); scene.add(f); freed.push({ m: f, t: 0, pop: true }); }
+const DOWN = new V3(0, -1, 0), heroUp = new V3(0, 1, 0), mBasis = new THREE.Matrix4(), qT = new THREE.Quaternion(), eul = new THREE.Euler();
+const ropes = hooks.map(() => {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1, 6).translate(0, .5, 0), new THREE.MeshBasicMaterial({ color: 0xe6eeff }));
+  m.visible = false; scene.add(m);
+  const claw = new THREE.Mesh(BALL, accent); claw.scale.setScalar(.18); claw.visible = false; scene.add(claw);
+  return { m, claw };
+});
+const wrist = [new V3(), new V3()];
+function drawHero(dt) {
+  const p = H.p, v = H.v;
+  hero.position.copy(p);
+  const on = hooks.filter(h => h.state === 'on');
+  if (on.length) { tA.set(0, 0, 0); for (const h of on) tA.add(tB.subVectors(h.a, p).normalize()); tA.normalize(); }
+  else if (H.state === 'wall') tA.copy(H.wallN).multiplyScalar(.7).add(Y).normalize();
+  else tA.copy(Y);
+  heroUp.lerp(tA, 1 - Math.exp(-10 * dt)).normalize();
+  tB.set(v.x, 0, v.z); if (tB.lengthSq() < 1) tB.copy(camDir); tB.normalize();
+  tB.addScaledVector(heroUp, -tB.dot(heroUp)).normalize();
+  tC.crossVectors(heroUp, tB);
+  mBasis.makeBasis(tC, heroUp, tB); qT.setFromRotationMatrix(mBasis);
+  hero.quaternion.slerp(qT, 1 - Math.exp(-12 * dt));
+  // slide: lean back low; roll: tumble forward
+  const sliding = H.slideT > 0 && H.state === 'roof', rolling = H.rollT > 0;
+  body.rotation.x = rolling ? (1 - H.rollT / .55) * Math.PI * 2 : sliding ? -1.1 : 0;
+  body.position.y = sliding ? -.45 : rolling ? -.35 : -.1;
+  hero.updateMatrixWorld(true);
+  const running = (H.state === 'roof' && !sliding) || H.state === 'wall';
+  S.runPhase += dt * (running ? 13 : 3);
+  arms.forEach((a, i) => {
+    const h = hooks[i], tgt = h.state === 'on' || h.state === 'fly' ? h.a : null;
+    if (tgt) { tD.copy(tgt); a.parent.worldToLocal(tD).sub(a.position).normalize(); qT.setFromUnitVectors(DOWN, tD); }
+    else qT.setFromEuler(eul.set(running ? Math.sin(S.runPhase + i * Math.PI) * .9 : balloonMode() ? -2.6 : -.6, 0, (i ? -1 : 1) * .35));
+    a.quaternion.slerp(qT, 1 - Math.exp(-18 * dt));
+    a.localToWorld(wrist[i].set(0, -.56, 0));
+  });
+  legs.forEach((l, i) => {
+    const ang = sliding ? 1.4 : running ? Math.sin(S.runPhase + i * Math.PI) : on.length ? .25 + i * .35 : -.5 + i * .5;
+    qT.setFromEuler(eul.set(ang, 0, 0)); l.quaternion.slerp(qT, 1 - Math.exp(-14 * dt));
+  });
+  hooks.forEach((h, i) => {
+    const r = ropes[i]; let tip = null;
+    if (h.state === 'on') tip = h.a;
+    else if (h.state === 'fly') tip = tD.copy(wrist[i]).lerp(h.a, Math.min(1, h.t * T.hookSpeed / Math.max(1, h.dist)));
+    else if (h.state === 'miss') { const f = h.t < .16 ? h.t / .16 : Math.max(0, 1 - (h.t - .16) / .16); tip = tD.copy(wrist[i]).lerp(h.a, f); }
+    r.m.visible = r.claw.visible = !!tip;
+    if (!tip) return;
+    tA.subVectors(tip, wrist[i]); const len = tA.length();
+    r.m.position.copy(wrist[i]); r.m.scale.set(1, Math.max(.01, len), 1);
+    r.m.quaternion.setFromUnitVectors(Y, tA.divideScalar(Math.max(.001, len)));
+    r.claw.position.copy(tip);
+  });
+  if (balloonMode()) {   // the bunch trails a little behind and bobs
+    pack.getWorldPosition(tD);
+    bunchG.position.lerp(tA.copy(tD).addScaledVector(v, -.06), 1 - Math.exp(-8 * dt));
+    const pos = strings.geometry.attributes.position, t = performance.now() / 1000;
+    bunchBalloons.forEach((m, k) => {
+      m.position.copy(m.userData.home).add(tB.set(Math.sin(t * 1.3 + k) * .08, Math.sin(t * 1.7 + k * 2) * .06, 0));
+      pos.setXYZ(k * 2, tD.x, tD.y + .1, tD.z);
+      m.getWorldPosition(tC); pos.setXYZ(k * 2 + 1, tC.x, tC.y - .48, tC.z);
+      if (!m.visible) { pos.setXYZ(k * 2, 0, -1e4, 0); pos.setXYZ(k * 2 + 1, 0, -1e4, 0); }
+    });
+    pos.needsUpdate = true;
+  }
+  for (let k = freed.length - 1; k >= 0; k--) {
+    const f = freed[k]; f.t += dt;
+    if (f.pop) f.m.scale.setScalar(.5 + f.t * 6); else f.m.position.y += dt * (4 + f.t * 3);
+    if (f.pop) f.m.material.opacity = 1 - f.t / .2;
+    if (f.t > (f.pop ? .2 : 4)) { scene.remove(f.m); freed.splice(k, 1); }
+  }
+}
+
+// ---------- birds: they cross the rows and pop balloons ----------
+const birds = [];
+(() => {
+  const mat = basic(0x0a0c18);
+  for (let i = 0; i < 10; i++) {
+    const g = new THREE.Group();
+    const bd = new THREE.Mesh(BALL, mat); bd.scale.set(.18, .14, .4); g.add(bd);
+    const wings = [-1, 1].map(s => { const w = new THREE.Mesh(new THREE.BoxGeometry(.7, .03, .28).translate(s * .35, 0, 0), mat); g.add(w); return w; });
+    g.visible = false; scene.add(g); birds.push({ g, wings, v: new V3(), scatter: 0, t: Math.random() * 6 });
+  }
+})();
+function updateBirds(dt) {
+  const on = balloonMode() && S.phase !== 'menu', p = H.p;
+  for (const b of birds) {
+    if (!on) { b.g.visible = false; continue; }
+    b.t += dt;
+    if (!b.g.visible || b.g.position.z < p.z - 30 || Math.abs(b.g.position.x) > 120) {   // a new bird ahead, crossing the rows
+      if (Math.random() > dt * .5) { b.g.visible = false; continue; }
+      const s = Math.random() < .5 ? -1 : 1;
+      b.g.position.set(s * 70, p.y + R(-2, 6), p.z + R(60, 140)); b.v.set(-s * R(7, 11), 0, R(-2, 2)); b.scatter = 0; b.g.visible = true;
+    }
+    if (b.scatter) b.v.y += dt * 12;
+    b.g.position.addScaledVector(b.v, dt);
+    b.g.rotation.y = Math.atan2(b.v.x, b.v.z);
+    const f = Math.sin(b.t * 14) * .7; b.wings[0].rotation.z = f; b.wings[1].rotation.z = -f;
+  }
+}
+
+// ---------- camera: behind and a little above, following the way you're going ----------
+function updateCamera(dt, snap) {
+  const p = H.p, v = H.v;
+  tA.set(v.x, 0, v.z);
+  if (tA.lengthSq() > 9) camDir.lerp(tA.normalize(), snap ? 1 : 1 - Math.exp(-2.6 * dt)).normalize();
+  const speed = v.length(), up = balloonMode() ? T.camUp + 1.2 : T.camUp;
+  tB.copy(p).addScaledVector(camDir, -T.camBack).add(tC.set(0, up, 0));
+  tD.subVectors(tB, p); const want = tD.length(); tD.divideScalar(want);
+  const hit = rayBoxes(p, tD, want, p.z - 20, p.z + 20);   // keep the camera out of buildings
+  if (hit != null) tB.copy(p).addScaledVector(tD, Math.max(.8, hit - .4));
+  if (tB.y < CLOUD + 1) tB.y = CLOUD + 1;
+  if (snap) camPos.copy(tB); else camPos.lerp(tB, 1 - Math.exp(-9 * dt));
+  camera.position.copy(camPos);
+  camera.lookAt(tA.copy(p).addScaledVector(camDir, 5).add(tC.set(0, .9, 0)));
+  setFov(Math.min(T.fovMax, Math.max(0, speed - 12) * T.fovSpeed));
+  sky.position.copy(camPos); stars.position.copy(camPos);
+  moon.position.copy(camPos).add(tA.set(-380, 520, 820));
+  skyline.position.set(camPos.x, CLOUD + 150, camPos.z);
+  const t = performance.now() / 1000;
+  cloudFloor.m.position.set(camPos.x, CLOUD - 2, camPos.z); cloudFloor.under.position.set(camPos.x, CLOUD - 2.2, camPos.z);
+  cloudFloor.t.offset.set((camPos.x / 300) + t * .002, -(camPos.z / 300));
+  veil.m.position.set(camPos.x, CLOUD + 3, camPos.z); veil.t.offset.set((camPos.x / 500) + t * .006, -(camPos.z / 500) + t * .003);
+}
+
+// ============================================================================================
+// INPUT. Grapple: a tap shoots that thumb's hook where you tapped; hold to stay on; slide up to
+// reel in, down to let rope out. A quick swipe instead jumps (up) or slides and rolls (down).
+// Balloons: left thumb jumps, holds to float, swipes down to slide or roll; right thumb lets a
+// balloon go. Tilt steers in both.
+// ============================================================================================
+const ptrs = new Map();
+function ring(x, y) { const r = document.createElement('div'); r.className = 'ring'; r.innerHTML = '<i></i>'; r.style.left = x + 'px'; r.style.top = y + 'px'; $('rings').appendChild(r); return r; }
+function press(side, x, y, id, withRing) {
+  const q = { side, i: side, x0: x, y0: y, t0: performance.now(), ring: withRing ? ring(x, y) : null };
+  ptrs.set(id, q);
+  if (balloonMode()) {
+    if (side === 0) { if (!jump() && H.state === 'air') SFX.puff(); S.float = true; if (S.hint === 1) hintNext(); }
+    else popBalloon('let');
+    return;
+  }
+  let i = side;
+  if (hooks[i].ptr != null && hooks[1 - i].ptr == null) i = 1 - i;
+  for (const [k, o] of ptrs) if (k !== id && o.i === i) { ptrs.delete(k); o.ring?.remove(); }
+  q.i = i; hooks[i].ptr = id; hooks[i].reel = 0; hooks[i].slide = 0;
+  fire(i, x, y);
+}
+function lift(id, x, y) {
+  const q = ptrs.get(id); if (!q) return;
+  ptrs.delete(id); q.ring?.remove();
+  const dy = y == null ? 0 : y - q.y0, dx = x == null ? 0 : x - q.x0;
+  const swipe = performance.now() - q.t0 < 280 && Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx) * 1.2 ? (dy < 0 ? 'up' : 'down') : null;
+  if (balloonMode()) {
+    if (q.side === 0) { S.float = false; if (swipe === 'down') duck(); }
+    return;
+  }
+  const h = hooks[q.i];
+  if (h.ptr === id) {
+    h.ptr = null; h.reel = 0; h.slide = 0;
+    if (swipe) { release(q.i, true); if (swipe === 'up') jump(); else duck(); }   // a swipe is a move, not a rope
+    else release(q.i);
+  }
+}
+const playing = () => S.phase === 'play' && !S.bot;
+cv.addEventListener('pointerdown', e => {
+  audio();
+  if (e.pointerType === 'mouse' || !playing()) return;
+  e.preventDefault();
+  const [x, y] = toApp(e);
+  press(x < APP.w / 2 ? 0 : 1, x, y, e.pointerId, true);
+});
+addEventListener('pointermove', e => {
+  const q = ptrs.get(e.pointerId); if (!q) return;
+  const [x, y] = toApp(e);
+  if (q.ring) { const i = q.ring.firstChild, dx = clamp(x - q.x0, -32, 32), dy = clamp(y - q.y0, -32, 32); i.style.transform = `translate(${dx}px,${dy}px)`; }
+  if (balloonMode()) return;
+  const h = hooks[q.i]; if (h.ptr !== e.pointerId) return;
+  const r = -(y - q.y0) / 55; h.reel = Math.abs(r) < .18 || performance.now() - q.t0 < 200 ? 0 : clamp(r, -1, 1);
+  h.slide = clamp((x - q.x0) / 70, -1, 1);   // steering for phones that give no tilt
+});
+addEventListener('pointerup', e => { const [x, y] = toApp(e); lift(e.pointerId, x, y); });
+addEventListener('pointercancel', e => lift(e.pointerId));
+cv.addEventListener('mousedown', e => { audio(); if (!playing() || e.button > 2 || e.button === 1) return; e.preventDefault(); const [x, y] = toApp(e); press(e.button === 2 ? 1 : 0, x, y, 'm' + e.button, false); });
+addEventListener('mouseup', e => lift('m' + e.button));
+cv.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('wheel', e => { if (!playing() || balloonMode()) return; S.wheelDir = e.deltaY < 0 ? 1 : -1; S.wheelT = .18; S.reeled ||= e.deltaY < 0; }, { passive: true });
+const keys = {};
+addEventListener('keydown', e => {
+  if (keys[e.code]) return; keys[e.code] = true;
+  if ((e.code === 'Escape' || e.code === 'KeyP') && S.phase === 'play') return pauseGame();
+  if (!playing()) return;
+  if (e.code === 'Space') { e.preventDefault(); if (!jump() && balloonMode()) SFX.puff(); S.float = true; }
+  if (e.code === 'KeyC' || (balloonMode() && (e.code === 'KeyS' || e.code === 'ArrowDown'))) duck();
+  if (balloonMode() && (e.code === 'KeyE' || e.code === 'ShiftLeft' || e.code === 'ShiftRight')) popBalloon('let');
+});
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') S.float = false; });
+// tilt: steer like a wheel, measured from how the phone was held when the run started
+addEventListener('deviceorientation', e => {
+  if (e.beta == null || e.gamma == null) return;
+  const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+  const ux = -Math.sin(g) * Math.cos(b), uy = Math.sin(b);   // world up, seen in the phone's own frame
+  let ang = (screen.orientation?.angle ?? window.orientation ?? 0) * Math.PI / 180;
+  if (APP.rot) ang += Math.PI / 2;   // the game is turned inside an upright screen
+  const sx = ux * Math.cos(ang) - uy * Math.sin(ang), sy = ux * Math.sin(ang) + uy * Math.cos(ang);
+  if (Math.hypot(sx, sy) < .12) return;   // flat on a table: nothing to read
+  S.tiltRaw = Math.atan2(-sx, sy) * 180 / Math.PI; S.tiltOK = true;
+});
+function readSteer(dt) {
+  let s = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+  if (S.tiltOK && S.phase === 'play') {
+    if (S.tiltZero == null) S.tiltZero = S.tiltRaw;
+    let d = S.tiltRaw - S.tiltZero; d = ((d + 540) % 360) - 180;
+    s += Math.abs(d) < 3 ? 0 : clamp((d - Math.sign(d) * 3) / (T.tiltFull - 3), -1, 1);
+  } else s += hooks[0].slide + hooks[1].slide;
+  H.steer = clamp(s, -1, 1);
+  S.wheelT = Math.max(0, S.wheelT - dt);
+  S.keyReel = balloonMode() ? 0 : (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + (S.wheelT > 0 ? S.wheelDir : 0);
+  if (S.keyReel > 0) S.reeled = true;
+}
+
+// ============================================================================================
+// SOUND: everything made in code, plus a slow night-city loop
+// ============================================================================================
+let AC = null, master, sfxBus, musicBus, noiseBuf, wind, windF;
+const muted = () => store.get('gc-muted') === '1';
+function audio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  master = AC.createGain(); master.gain.value = muted() ? 0 : .9; master.connect(AC.destination);
+  sfxBus = AC.createGain(); sfxBus.connect(master);
+  musicBus = AC.createGain(); musicBus.gain.value = .3; musicBus.connect(master);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  windF = AC.createBiquadFilter(); windF.type = 'lowpass'; windF.frequency.value = 300;
+  wind = AC.createGain(); wind.gain.value = 0;
+  src.connect(windF).connect(wind).connect(sfxBus); src.start();
+  music();
+}
+function noise(dur, type, f0, f1, q, vol, when = 0) {
+  if (!AC) return; const t = AC.currentTime + when;
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+  s.connect(f).connect(g).connect(sfxBus); s.start(t, Math.random() * 1.5); s.stop(t + dur + .05);
+}
+function tone(dur, type, f0, f1, vol, when = 0, bus = sfxBus, attack = .005) {
+  if (!AC) return; const t = AC.currentTime + when;
+  const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(bus); o.start(t); o.stop(t + dur + .05);
+}
+const SFX = {
+  fire() { noise(.15, 'bandpass', 3400, 800, 2, .55); tone(.1, 'triangle', 1300, 360, .1); },
+  attach() { tone(.1, 'sine', 170, 70, .5); noise(.04, 'highpass', 2600, 2200, 1, .22); },
+  miss() { noise(.12, 'bandpass', 2600, 1300, 2, .3); },
+  release() { noise(.28, 'bandpass', 500, 2200, .8, .3); },
+  creak() { noise(.035, 'bandpass', 1900, 1500, 9, .22); },
+  step() { tone(.05, 'sine', 150, 90, .22); noise(.03, 'lowpass', 900, 400, 1, .12); },
+  jump() { tone(.12, 'sine', 180, 320, .2); noise(.08, 'lowpass', 1200, 500, 1, .15); },
+  vault() { tone(.08, 'sine', 140, 220, .2); noise(.06, 'bandpass', 900, 1500, 1, .2); },
+  slide() { noise(.5, 'bandpass', 700, 300, 1, .3); },
+  roll() { tone(.2, 'sine', 120, 70, .4); noise(.25, 'lowpass', 800, 250, 1, .25); },
+  land() { tone(.14, 'sine', 110, 50, .5); noise(.1, 'lowpass', 600, 200, 1, .3); },
+  bonk() { tone(.15, 'square', 220, 120, .15); noise(.06, 'lowpass', 1500, 600, 1, .3); },
+  crash() { tone(.6, 'sine', 95, 30, .4); noise(1.2, 'lowpass', 900, 120, 1, .45); },   // a soft whoosh into the cloud
+  pop() { noise(.07, 'highpass', 1200, 900, 1, .6); tone(.05, 'square', 900, 300, .12); },
+  letGo() { tone(.35, 'sine', 500, 900, .12); },
+  pickup() { tone(.09, 'triangle', 660, 660, .18); tone(.12, 'triangle', 990, 990, .16, .07); },
+  puff() { noise(.2, 'lowpass', 500, 300, 1, .12); },
+};
+const midi = m => 440 * 2 ** ((m - 69) / 12);
+function music() {   // A minor, F, C, E at 84 a minute: pads, a pulsing bass and a quiet hat
+  const BEAT = 60 / 84, CH = [[45, [57, 60, 64]], [41, [57, 60, 65]], [48, [55, 60, 64]], [40, [56, 59, 64]]];
+  let next = AC.currentTime + .2, n = 0;
+  setInterval(() => {
+    if (!AC || AC.state !== 'running') return;
+    if (next < AC.currentTime) next = AC.currentTime + .05;
+    while (next < AC.currentTime + .4) {
+      const bar = Math.floor(n / 8) % 4, [root, pad] = CH[bar], e = n % 8, when = next - AC.currentTime;
+      if (e === 0) for (const m of pad) for (const det of [-6, 6]) {
+        const t = next, o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+        o.type = 'sawtooth'; o.frequency.value = midi(m); o.detune.value = det;
+        f.type = 'lowpass'; f.frequency.value = 700;
+        g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.05, t + 1.2); g.gain.linearRampToValueAtTime(.0001, t + BEAT * 4 + .3);
+        o.connect(f).connect(g).connect(musicBus); o.start(t); o.stop(t + BEAT * 4 + .4);
+      }
+      tone(BEAT * .45, 'triangle', midi(root), midi(root), .32, when, musicBus, .01);
+      if (e % 2 === 1) { const t = next, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.001, t + .05); s.connect(f).connect(g).connect(musicBus); s.start(t, Math.random()); s.stop(t + .08); }
+      next += BEAT / 2; n++;
+    }
+  }, 100);
+}
+function updateAudio(dt) {
+  if (!AC) return;
+  const sp = H.v.length(), live = S.phase === 'play' || S.phase === 'menu';
+  const k = live ? Math.min(1, sp / T.maxSpeed) : 0;
+  wind.gain.setTargetAtTime((S.phase === 'menu' ? .25 : 1) * .5 * k * k, AC.currentTime, .1);
+  windF.frequency.setTargetAtTime(250 + sp * 45, AC.currentTime, .1);
+  if (S.phase !== 'play') return;
+  const reel = Math.max(...hooks.map(h => h.state === 'on' ? Math.abs(h.reel + S.keyReel) : 0));
+  if (reel > .05) { S.tickT -= dt * (6 + reel * 22); if (S.tickT <= 0) { S.tickT = 1; SFX.creak(); } }
+  if ((H.state === 'roof' && H.slideT <= 0) || H.state === 'wall') { S.stepT -= dt; if (S.stepT <= 0) { S.stepT = .16; SFX.step(); } }
+}
+const setMuteIcon = () => { $('mute').innerHTML = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 7h4l5-4v14l-5-4H2z" fill="currentColor" stroke="none"/>${muted() ? '<path d="M14 7l5 6M19 7l-5 6"/>' : '<path d="M14 6.5q2.5 3.5 0 7M16.5 4q4.5 6 0 12"/>'}</svg>`; };
+$('mute').onclick = () => { store.set('gc-muted', muted() ? '0' : '1'); if (master) master.gain.value = muted() ? 0 : .9; setMuteIcon(); };
+setMuteIcon();
+
+// ============================================================================================
+// FLOW: menu (the computer swings behind it), play, pause, end
+// ============================================================================================
+const HINTS = {
+  grapple: isTouch ? ['Tap a building to shoot a rope', 'Slide your thumb up to reel in', 'Tilt the phone to steer', 'Swipe up to jump, down to slide'] : ['Click a building to shoot a rope', 'Scroll up to reel in', 'A and D steer', 'Space jumps, C slides'],
+  balloon: isTouch ? ['Tap with your left thumb to jump, hold to float', 'Swipe down to slide under pipes or roll as you land', 'Right thumb lets a balloon go', 'Tilt the phone to steer'] : ['Space jumps, hold it to float', 'C slides under pipes, or rolls as you land', 'E lets a balloon go', 'A and D steer'],
+};
+function hintNext() { S.hint++; S.hintT = 0; showHint(); }
+function showHint() { const t = HINTS[S.mode][S.hint - 1]; $('hint').textContent = t || ''; $('hint').classList.toggle('on', !!t); }
+const learnedKey = () => 'gc-learned-' + S.mode;
+function startRun(mode = S.mode, asBot = false) {
+  S.mode = mode;
+  resetWorld((Math.random() * 1e9) | 0, mode);
+  startHero(); updateCamera(0, true);
+  S.phase = 'play'; S.bot = asBot; S.tiltZero = null; S.reeled = false;
+  S.hint = store.get(learnedKey()) === '1' || asBot ? 0 : 1; S.hintT = 0; showHint();
+  for (const id of [...ptrs.keys()]) lift(id);
+  $('menu').hidden = $('end').hidden = $('paused').hidden = true; $('hud').hidden = false; $('pause').hidden = false;
+}
+const bestKey = m => m === 'balloon' ? 'gc-best-b' : 'gc-best';
+function endRun() {
+  S.phase = 'end'; S.endT = 0; SFX.crash();
+  for (const h of hooks) h.state = 'off';
+  $('hint').classList.remove('on'); $('pause').hidden = true;
+  const d = Math.floor(S.dist), prev = +store.get(bestKey(S.mode)) || 0;
+  $('enddist').textContent = `${d} m`;
+  $('pb').textContent = d > prev ? 'New best!' : `Best ${prev} m.`;
+  if (d > prev && !S.bot) store.set(bestKey(S.mode), String(d));
+  $('rank').textContent = ''; $('endboards').hidden = true; $('namebox').hidden = !(d > 0) || S.bot;
+  $('nick').value = (store.get('gc-name') || '').slice(0, 20);
+  endRunData = S.bot ? null : { mode: S.mode, sent: false, run: { player: playerId(), score: d, seconds: Math.round(S.t), hooks: S.hooks, balloons: S.gotBalloons, version: VERSION } };
+  showBoards(S.mode, $('ebDay'), $('ebAll'), $('endboards'));
+  setTimeout(() => { if (S.phase === 'end') $('end').hidden = false; }, 1100);
+}
+function toMenu() {
+  S.phase = 'menu'; S.bot = false;
+  for (const id of [...ptrs.keys()]) lift(id);
+  $('end').hidden = $('paused').hidden = true; $('hud').hidden = true; $('pause').hidden = true; $('menu').hidden = false;
+  $('hint').classList.remove('on');
+  menuRun(); loadMenu();
+}
+function menuRun() { S.mode = 'grapple'; resetWorld((Math.random() * 1e9) | 0, 'grapple'); startHero(); updateCamera(0, true); }
+function pauseGame() { if (S.phase !== 'play') return; S.phase = 'paused'; $('paused').hidden = false; for (const id of [...ptrs.keys()]) lift(id); }
+function play(mode) {
+  audio(); goLandscape();
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().catch(() => {});
+  startRun(mode);
+}
+$('playG').onclick = () => play('grapple'); $('playB').onclick = () => play('balloon');
+$('again').onclick = () => startRun(S.mode); $('tomenu').onclick = toMenu; $('quit').onclick = toMenu;
+$('resume').onclick = () => { $('paused').hidden = true; S.phase = 'play'; S.tiltZero = null; };
+$('pause').onclick = pauseGame;
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); else if (S.phase === 'menu') checkVersion(); });
+
+// ---------- high scores: the shared leaderboard Worker, one board per version ----------
+let endRunData = null;
+function playerId() { let id = store.get('gc-player'); if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); store.set('gc-player', id); } return id; }
+const local = () => /^(localhost|127\.|\[::1\])/.test(location.hostname) || location.protocol === 'file:';
+const LB = {
+  url: 'https://leaderboards.ai-wizards.workers.dev/',
+  game: m => m === 'balloon' ? 'grapple-city-balloons' : 'grapple-city',
+  async req(path, init = {}) {
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 5000);
+    try { const r = await fetch(this.url + path, { ...init, signal: ac.signal }); if (!r.ok) { console.warn('Leaderboard', path, r.status); return null; } return await r.json(); }
+    catch (e) { console.warn('Leaderboard', path, e?.message); return null; } finally { clearTimeout(timer); }
+  },
+  async submit(mode, run) {
+    if (local()) return null;   // a local test copy never writes to the real board
+    const x = await this.req(this.game(mode) + '/submit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(run) });
+    return x && typeof x === 'object' ? { rankAllTime: +x.rankAllTime || null, rankDaily: +x.rankDaily || null } : null;
+  },
+  async top(mode, scope, n = 5) {
+    if (local()) return null;
+    const d = await this.req(`${this.game(mode)}/top?scope=${scope}&n=${n}`);
+    return Array.isArray(d) ? d.slice(0, n).map(x => ({ name: String(x?.name || 'Anonymous').slice(0, 20), score: +x?.score || 0 })) : null;
+  },
+};
+function fillList(ol, rows) {
+  ol.innerHTML = '';
+  if (!rows) { ol.innerHTML = '<li>Offline</li>'; return; }
+  if (!rows.length) { ol.innerHTML = '<li>No runs yet</li>'; return; }
+  for (const r of rows) { const li = document.createElement('li'); li.textContent = `${r.name} ${r.score} m`; ol.appendChild(li); }
+}
+async function showBoards(mode, day, all, wrap) {
+  const [d, a] = await Promise.all([LB.top(mode, 'daily'), LB.top(mode, 'alltime')]);
+  if (wrap) { if (!d && !a) return; wrap.hidden = false; }
+  fillList(day, d); fillList(all, a);
+}
+async function loadMenu() {
+  const g = +store.get(bestKey('grapple')) || 0, b = +store.get(bestKey('balloon')) || 0;
+  $('best').textContent = g || b ? `Your best: grapple ${g} m, balloons ${b} m` : '';
+  const [tg, tb] = await Promise.all([LB.top('grapple', 'alltime'), LB.top('balloon', 'alltime')]);
+  fillList($('topG'), tg); fillList($('topB'), tb);
+}
+$('save').onclick = async () => {
+  const st = endRunData; if (!st || st.sent) return; st.sent = true;
+  const name = $('nick').value.trim().slice(0, 20); store.set('gc-name', name);
+  $('save').disabled = true; $('rank').textContent = 'Saving';
+  const res = await LB.submit(st.mode, { ...st.run, name: name || null });
+  $('save').disabled = false; $('namebox').hidden = true;
+  $('rank').textContent = res ? `#${res.rankDaily ?? '?'} today, #${res.rankAllTime ?? '?'} all time` : 'The scoreboard is offline. Your best is saved on this phone.';
+  showBoards(st.mode, $('ebDay'), $('ebAll'), $('endboards'));
+};
+$('nick').addEventListener('keydown', e => { if (e.key === 'Enter') $('save').click(); });
+async function checkVersion() {
+  if (local()) return;
+  try { const t = await (await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' })).text(); const m = t.match(/const VERSION = '([^']+)'/); if (m && m[1] !== VERSION && S.phase === 'menu') location.reload(); } catch {}
+}
+
+// ============================================================================================
+// MAIN LOOP
+// ============================================================================================
+let acc = 0, last = performance.now(), shownDist = -1;
+function frame(now) {
+  const dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+  tick(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+function tick(dt) {
+  if (S.phase === 'play' || S.phase === 'menu') {
+    if (S.phase === 'menu' || S.bot) botThink(dt); else readSteer(dt);
+    acc += dt;
+    while (acc >= STEP) { step(STEP); acc -= STEP; if (S.phase !== 'play' && S.phase !== 'menu') break; }
+    if (S.phase === 'play') {
+      S.t += dt; S.dist = Math.max(S.dist, H.p.z - S.startZ);
+      if (S.hint) {
+        S.hintT += dt;
+        const done = S.mode === 'grapple' ? (S.hint === 2 && (S.reeled || S.hintT > 7)) || (S.hint >= 3 && S.hintT > 4) : S.hint >= 2 && S.hintT > 4.5;
+        if (done) { if (S.hint === 4) store.set(learnedKey(), '1'); hintNext(); }
+      }
+      const d = Math.floor(S.dist); if (d !== shownDist) { shownDist = d; $('dist').textContent = `${d} m`; }
+    }
+    if (S.phase === 'menu' && (S.crashed || H.p.z > 3000)) menuRun();
+  } else acc = 0;
+  if (S.phase === 'end') S.endT += dt;
+  updateWorld(H.p.z);
+  for (const b of blinkers) b.visible = (performance.now() / 700 | 0) % 2 === 0;
+  const t = performance.now() / 1000;
+  for (const pk of pickups) if (!pk.taken) pk.g.position.y += Math.sin(t * 1.6 + pk.bob) * .004;
+  updateBirds(dt);
+  drawHero(dt);
+  updateCamera(dt);
+  updateAudio(dt);
+}
+
+addEventListener('resize', resize);
+resize(); menuRun(); loadMenu(); checkVersion();
+
+// ---------- tests: sim(seconds, mode) runs the computer player through several cities ----------
+function sim(secs, mode = 'grapple', seeds = [11, 22, 33, 44, 55]) {
+  const out = [];
+  for (const sd of seeds) {
+    S.mode = mode; resetWorld(sd, mode); startHero(); updateCamera(0, true);
+    S.phase = 'menu'; let t = 0, maxV = 0, onT = 0, wallT = 0, roofT = 0, minY = 1e9;
+    while (t < secs && !S.crashed) {
+      botThink(1 / 60);
+      for (let k = 0; k < 3; k++) step(STEP);
+      updateCamera(1 / 60); updateWorld(H.p.z); if (mode === 'balloon') { S.phase = 'sim'; updateBirds(1 / 60); S.phase = 'menu'; }
+      t += 1 / 60; maxV = Math.max(maxV, H.v.length()); minY = Math.min(minY, H.p.y);
+      if (hooks.some(h => h.state === 'on')) onT += 1 / 60;
+      if (H.state === 'wall') wallT += 1 / 60; if (H.state === 'roof') roofT += 1 / 60;
+    }
+    out.push({ seed: sd, secs: +t.toFixed(1), dist: Math.round(H.p.z - S.startZ), fell: S.crashed, y: +H.p.y.toFixed(0), minY: +minY.toFixed(0), maxV: +maxV.toFixed(1), onRope: +(onT / t).toFixed(2), wall: +wallT.toFixed(1), roof: +roofT.toFixed(1), hooks: S.hooks, balloons: S.balloons, got: S.gotBalloons, lost: S.lostBalloons });
+  }
+  menuRun();
+  return out;
+}
+function trace(secs, mode, sd, every = .5) {   // what the computer player does, second by second
+  S.mode = mode; resetWorld(sd, mode); startHero(); updateCamera(0, true); S.phase = 'menu';
+  const log = [];
+  for (let t = 0; t < secs && !S.crashed; t += 1 / 60) {
+    botThink(1 / 60); for (let k = 0; k < 3; k++) step(STEP); updateCamera(1 / 60); updateWorld(H.p.z);
+    if (Math.abs(t / every - Math.round(t / every)) < 1 / 120) log.push(`${t.toFixed(1)} ${H.state} p=${H.p.toArray().map(x => x.toFixed(0))} v=${H.v.toArray().map(x => x.toFixed(1))} steer=${H.steer.toFixed(2)} roofTop=${H.roof?.y1?.toFixed(0)} st=${H.stumbleT.toFixed(1)} bal=${S.balloons}`);
+  }
+  menuRun(); return log.join('\n');
+}
+window.__game = { S, H, T, hooks, boxes: () => boxes, pickups: () => pickups, trace, startRun, endRun, step, sim, fireAt, release, jump, duck, aimHit, tick, VERSION, camera, renderer, scene };
+const hash = location.hash.slice(1);
+if (hash.startsWith('demo')) { const [, m, s] = hash.split('-'); startRun(m === 'b' ? 'balloon' : 'grapple', true); for (let i = 0; i < (+s || 0) * 60; i++) tick(1 / 60); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
