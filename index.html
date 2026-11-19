@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#070b1c">
-<meta name="description" content="Swing or float across a city of towers above the clouds at night. Don't fall into the clouds.">
-<title>Grapple City</title>
+<meta name="description" content="Swing across a city of towers above the clouds at night. Don't fall into the clouds.">
+<title>City Swinger</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070b1c'/%3E%3Cpath d='M5 27L21 11' stroke='%23e6eeff' stroke-width='2.5'/%3E%3Cpath d='M21 11l5-5M21 11l6 1M21 11l-1-6' stroke='%23ffd27a' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,8 +20,6 @@ html, body { margin: 0; height: 100%; background: var(--ink); color: var(--paper
 .big { font-family: "Bebas Neue", Impact, sans-serif; letter-spacing: 1px; }
 #hud { position: absolute; top: 10px; left: 0; right: 0; text-align: center; pointer-events: none; }
 #dist { font-size: 40px; line-height: 1; }
-#bals { height: 22px; margin-top: 2px; }
-#bals svg { width: 14px; height: 20px; margin: 0 1px; }
 #tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
 #tools button { width: 40px; height: 40px; padding: 8px; background: rgba(7,11,28,.55); border: 2px solid rgba(242,239,230,.55); color: var(--paper); cursor: pointer; }
 #tools svg { width: 100%; height: 100%; display: block; }
@@ -58,7 +56,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <body>
 <div id="app">
   <canvas id="c"></canvas>
-  <div id="hud" hidden><div id="dist" class="big">0 m</div><div id="bals"></div></div>
+  <div id="hud" hidden><div id="dist" class="big">0 m</div></div>
   <div id="tools">
     <button id="pause" aria-label="Pause" hidden><svg viewBox="0 0 20 20"><rect x="4" y="3" width="4" height="14" fill="currentColor"/><rect x="12" y="3" width="4" height="14" fill="currentColor"/></svg></button>
     <button id="mute" aria-label="Sound"></button>
@@ -67,13 +65,13 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
   <div id="rings"></div>
 
   <div class="screen" id="menu"><div class="card">
-    <h1 class="big">Grapple City</h1>
-    <p class="tag">Cross the towers above the clouds. Don't fall in.</p>
-    <button class="btn" id="playG">Grapple</button><button class="btn" id="playB">Balloons</button>
-    <p class="how" id="howTouch">Grapple: tap a building to shoot a rope, one hook for each thumb. Hold to swing, slide up to reel in. Balloons: left thumb jumps and floats, right thumb lets a balloon go. In both, swipe up to jump, down to slide or roll, and tilt the phone to steer.</p>
-    <p class="how" id="howKeys">Grapple: left and right click shoot a hook at the cursor, hold to swing, the wheel or W and S reel. Balloons: left click or Space jumps and floats, right click or E lets a balloon go. In both, Space jumps, C slides or rolls, A and D steer.</p>
+    <h1 class="big">City Swinger</h1>
+    <p class="tag">Swing across the towers above the clouds. Don't fall in.</p>
+    <button class="btn" id="play">Play</button>
+    <p class="how" id="howTouch">Hold to swing, let go to fly, tap to jump. The rope goes to the side you tilt the phone.</p>
+    <p class="how" id="howKeys">Hold the mouse button to swing, let go to fly, Space jumps. The rope goes to the side you steer with A and D.</p>
     <p class="line" id="best"></p>
-    <div class="boards"><div class="board"><h3>Grapple</h3><ol id="topG"></ol></div><div class="board"><h3>Balloons</h3><ol id="topB"></ol></div></div>
+    <div class="boards"><div class="board"><h3>Today</h3><ol id="topDay"></ol></div><div class="board"><h3>All time</h3><ol id="topAll"></ol></div></div>
     <p class="by">by <a href="https://simonsoliloquy.com" target="_blank" rel="noopener">simonsoliloquy.com</a></p>
   </div></div>
 
@@ -96,7 +94,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <script type="module">
 import * as THREE from 'three';
 
-const VERSION = 'v2026-11-19e';
+const VERSION = 'v2026-11-19g';
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -112,7 +110,7 @@ $('howTouch').hidden = !isTouch; $('howKeys').hidden = isTouch;
 // ============================================================================================
 const T = {
   gravity: 24, drag: 0.05, maxSpeed: 62,
-  hookRange: 140, hookSpeed: 340, assistDeg: 8,
+  hookRange: 140, hookSpeed: 340, assistDeg: 8, anchorRise: 24,
   pump: 7, redirect: 0.6,                 // speed added at the bottom of each arc; share of speed the rope would kill that goes into the swing
   reelIn: 24, reelOut: 14, minRope: 2.5, maxRope: 150,
   flingUp: 7, flingFwd: 4,                // letting go near the top of an arc
@@ -120,7 +118,6 @@ const T = {
   wallGrav: 0.22, wallTime: 1.4, wallMinSpeed: 6, wallKick: 8,
   roofRun: 11, runGain: 6, jump: 9.5,     // run speed grows by up to runGain over the run
   slideTime: 0.75, rollWindow: 0.5, hardLand: -17,
-  lift: 0.14, startBalloons: 5, maxBalloons: 10, floatHold: 0.5, floatTime: 2.2, maxRise: 8,
   camBack: 8.5, camUp: 2.4, hfov: 96, fovSpeed: 0.25, fovMax: 16,
   camBackTall: 11, camUpTall: 3.4, vfovTall: 84,   // held upright: further back and higher, to see both sides of the street
   tiltFull: 24,
@@ -311,10 +308,10 @@ const puffMats = [0x9aa6dc, 0x8e9bd4, 0xa9b3e6].map(c => new THREE.SpriteMateria
 // ============================================================================================
 // THE CITY: an endless street of towers on both sides, made just ahead and dropped behind.
 // Everything solid is an axis-aligned box, so hooks and collisions are exact.
-// Box flags: bld (a tower), low (vault over it), duck (slide under it), spike (pops balloons).
+// Box flags: bld (a tower), low (vault over it), duck (slide under it).
 // ============================================================================================
 const world = new THREE.Group(); scene.add(world);
-let decor = [], boxes = [], pickups = [];
+let decor = [], boxes = [];
 const GEN = {};
 function addDecor(o, z1) { world.add(o); decor.push({ o, z1 }); return o; }
 function boxGeo(w, h, d, ou, ov) {   // windows stay the same size whatever the building's size
@@ -346,9 +343,9 @@ function roofProps(b, s) {
     boxes.push({ x0: cx - 2.9, x1: cx + 2.9, y0: top, y1: top + 9.4, z0: cz - 2.9, z1: cz + 2.9 });
     used = true;
   }
-  if (rnd() < 0.24) {   // antenna with a blinking light: pops balloons
+  if (rnd() < 0.24) {   // antenna with a blinking light
     const ax = R(b.x0 + 2, b.x1 - 2), az = R(b.z0 + 2, b.z1 - 2), ah = R(8, 20);
-    block(ax - .3, ax + .3, top, top + ah, az - .3, az + .3, antennaMat, true, { spike: true });
+    block(ax - .3, ax + .3, top, top + ah, az - .3, az + .3, antennaMat);
     light(ax, top + ah + .4, az, b.z1);
   }
   // parkour: air-conditioning boxes to vault, pipes to slide under
@@ -365,56 +362,34 @@ function roofProps(b, s) {
   else if (rnd() < 0.08) {   // a spire
     const h = R(14, 30), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
     const m = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 8), antennaMat); m.position.set(cx, top + h / 2, cz); m.userData.own = true; addDecor(m, b.z1);
-    boxes.push({ x0: cx - .8, x1: cx + .8, y0: top, y1: top + h, z0: cz - .8, z1: cz + .8, spike: true });
+    boxes.push({ x0: cx - .8, x1: cx + .8, y0: top, y1: top + h, z0: cz - .8, z1: cz + .8 });
     light(cx, top + h + .3, cz, b.z1);
   }
 }
 function crane(b, s) {   // a tower crane whose arm reaches out over the street: a great anchor
   const top = b.y1, tx = s < 0 ? b.x0 + 3 : b.x1 - 3, tz = (b.z0 + b.z1) / 2, th = R(18, 28);
-  block(tx - 1.5, tx + 1.5, top, top + th, tz - 1.5, tz + 1.5, craneMat, true, { spike: true });
+  block(tx - 1.5, tx + 1.5, top, top + th, tz - 1.5, tz + 1.5, craneMat);
   const end = s < 0 ? R(-2, 6) : -R(-2, 6), cj = tx + s * 10;
-  block(Math.min(tx, end), Math.max(tx, end), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { spike: true });
-  block(Math.min(tx, cj), Math.max(tx, cj), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { spike: true });
+  block(Math.min(tx, end), Math.max(tx, end), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat);
+  block(Math.min(tx, cj), Math.max(tx, cj), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat);
   block(cj - s * 3, cj, top + th - 3, top + th, tz - 1.2, tz + 1.2, poleMat);
   light(end, top + th + 2.1, tz, b.z1, redMat, .5);
 }
-// balloons to collect (balloons version only)
-const BALLOON_COLS = [0xff4d5e, 0xffd23f, 0x3fa7ff, 0x5ad66b, 0xff8a3d, 0xb36bff, 0xff6fb5, 0xf2f2f2, 0x34d6c4, 0xff4d5e];
-const balloonMats = BALLOON_COLS.map(c => new THREE.MeshPhongMaterial({ color: c, specular: 0xffffff, shininess: 90, emissive: c, emissiveIntensity: .18 }));
-const BALLOON_GEO = new THREE.SphereGeometry(.42, 14, 10).scale(1, 1.18, 1);
-function pickup(x, y, z) {
-  const g = new THREE.Group();
-  const m = new THREE.Mesh(BALLOON_GEO, balloonMats[(rnd() * balloonMats.length) | 0]); g.add(m);
-  const str = new THREE.Mesh(new THREE.CylinderGeometry(.01, .01, 1.1, 3).translate(0, -1, 0), basic(0xdddddd)); g.add(str);
-  g.position.set(x, y, z); addDecor(g, z);
-  pickups.push({ g, p: g.position, taken: false, bob: rnd() * 6 });
-}
 function genSide(s, zEnd) {
-  const i = s < 0 ? 0 : 1, balloons = GEN.mode === 'balloon';
+  const i = s < 0 ? 0 : 1;
   while (GEN.z[i] < zEnd) {
     const z0 = GEN.z[i], early = z0 < 240;
     if (!early && rnd() < 0.05) { GEN.z[i] += R(30, 45); continue; }   // an open gap: only the other side
     const w = R(16, 36), depth = R(18, 30), set = rnd() < 0.3 ? R(1, 4) : 0;
-    let h;
-    if (balloons) {   // mostly stepping down; now and then a tall one, with balloons in front to rise on
-      const rise = !early && rnd() < 0.16;
-      h = GEN.h[i] = clamp(rise ? GEN.h[i] + R(14, 30) : GEN.h[i] - R(0, 10), CLOUD + 45, 320);
-      if (rise) GEN.rise[i] = true;
-    } else h = GEN.h[i] = clamp(GEN.h[i] + R(-35, 35), early ? 190 : CLOUD + 60, 320);
+    const h = GEN.h[i] = clamp(GEN.h[i] + R(-35, 35), early ? 190 : CLOUD + 60, 320);
     const face = STREET + set, back = face + depth;
     const x0 = s < 0 ? -back : face, x1 = s < 0 ? -face : back, z1 = z0 + w, v = (rnd() * 3) | 0;
-    if (GEN.rise[i] && balloons) {   // a stack of balloons to grab just before the tall tower
-      GEN.rise[i] = false;
-      for (let k = 0; k < 5; k++) pickup((x0 + x1) / 2 + R(-2.5, 2.5), GEN.lastTop[i] + 1.5 + k * 2.2, z0 - 3 - k * 2.5);
-    }
     if (h > CLOUD + 80 && rnd() < 0.3) {   // a podium with a tower set back on it
       const hp = BASE + (h - BASE) * R(.55, .8), inset = R(3, 6);
       building(x0, x1, BASE, hp, z0, z1, v);
       roofProps(building(s < 0 ? x0 + 2 : x0 + inset, s < 0 ? x1 - inset : x1 - 2, hp, h, z0 + 2, z1 - 2, v), s);
     } else roofProps(building(x0, x1, BASE, h, z0, z1, v), s);
-    const r = rnd(), gap = balloons ? (r < 0.45 ? R(0, 1) : r < 0.8 ? R(5, 11) : R(13, 22)) : (r < 0.55 ? R(0, 1.5) : r < 0.87 ? R(5, 12) : R(16, 28));
-    if (balloons && gap > 4 && rnd() < .35) pickup((x0 + x1) / 2 + R(-4, 4), h + R(1, 5), z1 + gap / 2);
-    GEN.lastTop[i] = h;
+    const r = rnd(), gap = r < 0.55 ? R(0, 1.5) : r < 0.87 ? R(5, 12) : R(16, 28);
     GEN.z[i] = z1 + gap;
   }
 }
@@ -441,9 +416,9 @@ function genPuffs(zEnd) {
   }
 }
 function disposeDecor(d) { world.remove(d.o); if (d.o.userData.own) d.o.geometry.dispose(); }
-function resetWorld(sd, mode) {
-  seed = sd; for (const d of decor) disposeDecor(d); decor = []; boxes = []; pickups = []; blinkers.length = 0;
-  Object.assign(GEN, { mode, z: [-90, -90], h: [215, 215], lastTop: [215, 215], rise: [false, false], bridge: 160, puff: -120 });
+function resetWorld(sd) {
+  seed = sd; for (const d of decor) disposeDecor(d); decor = []; boxes = []; blinkers.length = 0;
+  Object.assign(GEN, { z: [-90, -90], h: [215, 215], bridge: 160, puff: -120 });
   updateWorld(0);
 }
 function updateWorld(z) {
@@ -453,7 +428,6 @@ function updateWorld(z) {
   if (decor.length && decor[0].z1 < behind || boxes.length > 1200) {
     decor = decor.filter(d => d.z1 >= behind || (disposeDecor(d), false));
     boxes = boxes.filter(b => b.z1 >= behind);
-    pickups = pickups.filter(p => p.p.z >= behind);
   }
 }
 function rayBoxes(o, d, maxT, zMin = -1e9, zMax = 1e9) {   // nearest box hit along a ray
@@ -470,24 +444,18 @@ function rayBoxes(o, d, maxT, zMin = -1e9, zMax = 1e9) {   // nearest box hit al
   }
   return hit ? best : null;
 }
-function roofAt(x, z, y) {   // the highest roof under a point, no higher than y
-  let best = null;
-  for (const b of boxes) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && b.y1 <= y + .6 && (!best || b.y1 > best.y1) && !b.duck) best = b;
-  return best;
-}
 
 // ============================================================================================
 // THE HERO
 // ============================================================================================
-const S = { phase: 'menu', mode: 'grapple', dist: 0, startZ: 0, t: 0, hooks: 0, crashed: false, bot: false, tiltOK: false, tiltRaw: 0, tiltZero: null,
+const S = { phase: 'menu', dist: 0, startZ: 0, t: 0, hooks: 0, crashed: false, bot: false, tiltOK: false, tiltRaw: 0, tiltZero: null,
   keySteer: 0, keyReel: 0, wheelT: 0, wheelDir: 0, hint: 0, hintT: 0, reeled: false, runPhase: 0, stepT: 0, tickT: 0, endT: 0, lastVy: 0,
-  balloons: 0, popCool: 0, float: false, floatT: 0, gotBalloons: 0, lostBalloons: 0 };
+  thumbReel: 0, thumbSlide: 0 };
 const H = { p: new V3(), v: new V3(), state: 'air', wallN: new V3(), wallB: null, wallT: 0, wallCool: 0, roof: null, heading: new V3(0, 0, 1), steer: 0,
   slideT: 0, rollWin: 0, rollT: 0, stumbleT: 0, vaultT: 0, bonkCool: 0, climbT: 0, climbOK: true, climbCool: 0 };
 const hooks = [0, 1].map(i => ({ i, state: 'off', a: new V3(), L: 0, t: 0, reel: 0, reelV: 0, ptr: null, slide: 0, dist: 0 }));
 const camDir = new V3(0, 0, 1), camPos = new V3(), Y = new V3(0, 1, 0);
 const tA = new V3(), tB = new V3(), tC = new V3(), tD = new V3(), tN = new V3();
-const balloonMode = () => S.mode === 'balloon';
 
 function rightOf(f, out) { return out.set(-f.z, 0, f.x).normalize(); }
 function handPos(i, out) { rightOf(camDir, out); return out.multiplyScalar(i === 0 ? -0.32 : 0.32).add(H.p).setY(H.p.y + 0.9); }
@@ -496,14 +464,9 @@ function runSpeed() { return (T.roofRun + Math.min(T.runGain, S.dist / 500)) * (
 function startHero() {
   H.v.set(0, 0, 0); H.state = 'air'; H.heading.set(0, 0, 1); H.wallCool = 0; H.slideT = H.rollWin = H.rollT = H.stumbleT = H.vaultT = 0;
   for (const h of hooks) { h.state = 'off'; h.reel = 0; h.ptr = null; h.slide = 0; }
-  if (balloonMode()) {   // start on the roof of the first tower on the left
-    const b = roofAt(-STREET - 8, 6, 1e4) || { y1: 215 };
-    H.p.set(-STREET - 8, b.y1 + R_H + .05, 6); H.v.set(0, 0, T.roofRun);
-  } else { H.p.set(0, 225, 0); H.v.set(0, 5, 17); }
+  H.p.set(0, 225, 0); H.v.set(0, 5, 17);
   camDir.set(0, 0, 1); camPos.copy(H.p).add(tA.set(0, 2, -9));
   S.dist = 0; S.startZ = H.p.z; S.t = 0; S.hooks = 0; S.crashed = false;
-  S.balloons = balloonMode() ? T.startBalloons : 0; S.popCool = 0; S.float = false; S.floatT = 0; S.gotBalloons = S.lostBalloons = 0;
-  drawBalloons(true);
 }
 
 // ---------- hooks ----------
@@ -535,6 +498,46 @@ function fireAt(i, point) {
   h.state = 'fly'; h.a.copy(point); h.t = 0; h.reel = 0; h.dist = handPos(i, tA).distanceTo(point); S.hooks++; SFX.fire();
 }
 function fire(i, x, y) { fireAt(i, aimHit(x, y)); }
+// One button swings (Simon, 2026-11-19: "swing and jump only... whichever way you tilt is which
+// way the hook goes"). The hook picks its own anchor: up and ahead, on the side you lean to
+// (side -1 left, 1 right, 0 either). Overhead things (a bridge, a crane arm) are hooked from below.
+const aR = new V3(), aP = new V3(), aQ = new V3(), aD = new V3();
+function autoAnchor(side) {
+  const p = H.p, f = camDir, r = rightOf(camDir, aR);
+  const lead = clamp(H.v.x * f.x + H.v.z * f.z, 0, 50) * .45;
+  let best = null, bs = -1e9;
+  for (const b of boxes) {
+    if (b.duck || b.low || b.y1 < p.y + 7 || b.z1 < p.z - 5 || b.z0 > p.z + 110) continue;
+    for (const ahead of [14, 24, 36]) {
+      aP.copy(p).addScaledVector(f, ahead + lead);
+      aQ.set(clamp(aP.x, b.x0, b.x1), 0, clamp(aP.z, b.z0, b.z1));
+      const over = aQ.x === aP.x && aQ.z === aP.z;
+      if (over && b.y0 < p.y + 6) continue;
+      aQ.y = over ? b.y0 : Math.min(b.y1 - .6, Math.max(b.y0 + .5, p.y + T.anchorRise));
+      const d = aQ.distanceTo(p); if (d > T.hookRange * .75 || d < 9) continue;
+      const lat = (aQ.x - p.x) * r.x + (aQ.z - p.z) * r.z, fwd = (aQ.x - p.x) * f.x + (aQ.z - p.z) * f.z;
+      if (fwd < 4) continue;
+      if (side && !over && lat * side < 1) continue;
+      const s = (aQ.y - p.y) - Math.abs(d - 36) * .6 + fwd * .3 - Math.abs(lat) * (side ? .1 : .4) + (over ? 5 : 0);
+      if (s > bs) { bs = s; best = (best || new V3()).copy(aQ); }
+    }
+  }
+  if (!best) return null;
+  // the rope stops at whatever is in the way
+  handPos(0, aP); aD.subVectors(best, aP); const d = aD.length(); aD.divideScalar(d);
+  const t = rayBoxes(aP, aD, d + 1, p.z - 20, p.z + 160);
+  if (t != null && t < d - 1.5) { best.copy(aP).addScaledVector(aD, t); if (best.y < p.y + 4) return null; }
+  return best;
+}
+function tiltSide() { return Math.abs(H.steer) > .15 ? Math.sign(H.steer) : 0; }
+function swing(side = tiltSide()) {   // fire the one rope; true if it found something to hold
+  const a = autoAnchor(side) || (side ? autoAnchor(0) : null);
+  const r = rightOf(camDir, aR), i = a && (a.x - H.p.x) * r.x + (a.z - H.p.z) * r.z > 0 ? 1 : 0;   // the arm on that side
+  for (const h of hooks) if (h.i !== i && h.state !== 'off') release(h.i, true);
+  hooks[i].reel = 0; fireAt(i, a);
+  return a ? i : -1;
+}
+function letGo() { for (const h of hooks) { h.reel = 0; if (h.state === 'on' || h.state === 'fly') release(h.i); } }
 function release(i, quiet) {
   const h = hooks[i];
   if (h.state === 'on' && !quiet) {
@@ -560,10 +563,6 @@ function duck() {
   if (H.state === 'roof') { if (H.slideT <= 0) SFX.slide(); H.slideT = T.slideTime; }
   else H.rollWin = T.rollWindow;
 }
-function popBalloon(why) {
-  if (S.balloons <= 0) return;
-  S.balloons--; S.lostBalloons++; drawBalloons(); if (why === 'pop') { SFX.pop(); burst(); } else { SFX.letGo(); letGoVisual(); }
-}
 
 // ---------- physics, 180 steps a second ----------
 function constrain(h, first) {
@@ -586,15 +585,9 @@ function step(dt) {
   const on = hooks.filter(h => h.state === 'on');
   for (const k of ['wallCool', 'slideT', 'rollWin', 'rollT', 'stumbleT', 'vaultT', 'bonkCool', 'climbT', 'climbCool']) H[k] = Math.max(0, H[k] - dt);
   if (on.length || H.state === 'wall') H.climbOK = true;
-  S.popCool = Math.max(0, S.popCool - dt);
-  // gravity: lighter on a wall, and lighter with every balloon
-  let g = H.state === 'wall' ? T.wallGrav * (H.wallT > T.wallTime * .6 ? 2.5 : 1) : 1;
-  if (balloonMode()) {
-    g *= 1 - S.balloons * T.lift;
-    if (S.float && H.state === 'air' && S.floatT < T.floatTime) { S.floatT += dt; if (v.y < 3) g *= T.floatHold; }
-  }
+  // gravity, lighter while running on a wall
+  const g = H.state === 'wall' ? T.wallGrav * (H.wallT > T.wallTime * .6 ? 2.5 : 1) : 1;
   v.y -= T.gravity * g * dt;
-  if (v.y > T.maxRise && g < 0) v.y = T.maxRise;
   if (H.state !== 'roof') v.addScaledVector(rightOf(camDir, tA), H.steer * (on.length ? T.steerRope : T.steerAir) * dt);
   for (const h of on) {   // the pump: speed builds through the bottom of each arc
     tC.subVectors(h.a, p); const len = tC.length(); if (len < .01) continue; tC.divideScalar(len);
@@ -621,7 +614,6 @@ function step(dt) {
   p.addScaledVector(v, dt);
   for (let it = 0; it < 2; it++) for (const h of on) constrain(h, it === 0);
   collide(dt);
-  if (balloonMode()) balloonTouches();
 }
 const NORM = [new V3(-1, 0, 0), new V3(1, 0, 0), new V3(0, -1, 0), new V3(0, 1, 0), new V3(0, 0, -1), new V3(0, 0, 1)];
 function sphereBox(cx, cy, cz, r, b) { const x = clamp(cx, b.x0, b.x1) - cx, y = clamp(cy, b.y0, b.y1) - cy, z = clamp(cz, b.z0, b.z1) - cz; return x * x + y * y + z * z < r * r; }
@@ -668,7 +660,7 @@ function collide(dt) {
     v.y = Math.max(v.y, 8.5); H.climbOK = false; H.climbT = .9; H.climbCool = 1.5; H.state = 'air'; SFX.step();
   } else if (roof) {
     if (was !== 'roof') land();
-    H.state = 'roof'; H.roof = roof; S.floatT = 0; H.climbOK = true;
+    H.state = 'roof'; H.roof = roof; H.climbOK = true;
     H.heading.applyAxisAngle(Y, -H.steer * T.steerRoof * dt);
     if (wall) {   // a wall too tall to climb: run along it instead of into it
       const into = H.heading.dot(H.wallN);
@@ -704,27 +696,11 @@ function onFall() {
   if (S.phase === 'play') endRun();
   else S.crashed = true;
 }
-// balloons: grab the ones floating about; spikes and birds pop yours
-const bunch = new V3();
-function balloonTouches() {
-  bunch.copy(H.p); bunch.y += 2.7;
-  for (const pk of pickups) {
-    if (pk.taken || S.balloons >= T.maxBalloons) continue;
-    if (pk.p.distanceToSquared(H.p) < 2.4 * 2.4 || pk.p.distanceToSquared(bunch) < 2 * 2) {
-      pk.taken = true; pk.g.visible = false; S.balloons++; S.gotBalloons++; drawBalloons(); SFX.pickup();
-    }
-  }
-  if (S.popCool > 0 || S.balloons <= 0) return;
-  for (const b of boxes) if (b.spike && sphereBox(bunch.x, bunch.y, bunch.z, 1.1, b)) { popBalloon('pop'); S.popCool = .6; return; }
-  for (const bd of birds) if (bd.g.visible && bd.g.position.distanceToSquared(bunch) < 1.6 * 1.6) { popBalloon('pop'); S.popCool = .6; bd.scatter = 1; return; }
-}
-
 // ============================================================================================
-// THE COMPUTER PLAYERS: the grapple one plays behind the menu; both drive the tests
+// THE COMPUTER PLAYER: swings behind the menu and drives the tests
 // ============================================================================================
 const B = { t: 0, next: 0 };
 function botThink(dt) {
-  if (balloonMode()) return botBalloon(dt);
   const p = H.p, v = H.v; B.t += dt;
   const ax = -(p.x * .12 + v.x * .12);
   H.steer = clamp(ax * rightOf(camDir, tA).x, -1, 1);
@@ -734,7 +710,10 @@ function botThink(dt) {
     if (p.z > on.a.z + 2 && v.y > 0 && (on.a.y - p.y) < on.L * .55) { release(on.i); B.t = 0; return; }
     on.reel = p.y < CLOUD + 25 ? 1 : p.y < CLOUD + 50 ? .5 : 0;
   } else if ((v.y < 1 || H.state !== 'air') && B.t > .15) {
-    const t = botAnchor(); if (t) { fireAt(B.next, t); B.next ^= 1; B.t = 0; }
+    // the same rope the player has: lean away from whichever side it is drifting to
+    const side = p.x * rightOf(camDir, tA).x > 3 ? -1 : p.x * tA.x < -3 ? 1 : (B.next ? 1 : -1);
+    if (swing(side) >= 0) { B.next ^= 1; B.t = 0; }
+    else { const t = botAnchor(); if (t) { fireAt(B.next, t); B.next ^= 1; B.t = 0; } }
   }
 }
 function botAnchor() {
@@ -755,25 +734,9 @@ function botAnchor() {
   }
   return null;
 }
-function botBalloon(dt) {   // stay on the row, jump at edges, float across, grab balloons, let go when too light
-  const p = H.p, v = H.v, row = Math.sign(p.x || -1) * (STREET + 12);
-  let tx = row;
-  const pk = pickups.find(k => !k.taken && Math.sign(k.p.x) === Math.sign(row) && k.p.z > p.z + 2 && k.p.z < p.z + 30 && Math.abs(k.p.y - p.y) < 25);
-  if (pk) tx = pk.p.x;
-  H.steer = clamp(-((p.x - tx) * .08 + v.x * .25) * rightOf(camDir, tA).x, -1, 1);
-  if (H.state === 'roof') {
-    S.float = false;
-    const ahead = roofAt(p.x + v.x * .1, p.z + v.z * .1 + .7, p.y);
-    if (!ahead || ahead.y1 < p.y - R_H - .5) { jump(); S.float = true; }
-    else if (ahead && H.roof && ahead !== H.roof && ahead.y1 > H.roof.y1 + 2.7) jump();
-  } else S.float = true;
-  const under = roofAt(p.x, p.z + 18, p.y + 40);
-  if (S.balloons > 6 && v.y > 3 && under && p.y > under.y1 + 15) popBalloon('let');
-}
 
 // ============================================================================================
-// THE HERO, DRAWN: a person in a dark jacket with a grappling gun on each wrist,
-// or a backpack of balloons
+// THE HERO, DRAWN: a person in a dark jacket with a grappling gun on each wrist
 // ============================================================================================
 const hero = new THREE.Group(); scene.add(hero);
 const jacket = phong(0x2b3242), trousers = phong(0x1b1e26), skin = phong(0xc99a7c), hair = phong(0x1a1412), accent = basic(0xffd27a), gunMat = phong(0x5a6070, 70);
@@ -783,32 +746,14 @@ part(new THREE.CapsuleGeometry(.22, .42, 4, 10), jacket, 0, .72, 0, body);
 part(new THREE.BoxGeometry(.06, .4, .03), accent, 0, .74, -.215, body);
 part(new THREE.SphereGeometry(.17, 14, 10), skin, 0, 1.13, .02, body);
 part(new THREE.SphereGeometry(.178, 14, 10, 0, Math.PI * 2, 0, Math.PI * .55), hair, 0, 1.15, -.01, body);
-const pack = part(new THREE.BoxGeometry(.34, .42, .2), phong(0x3a2f28), 0, .78, -.3, body);
 const limb = (len, r, mat, gun) => {
   const g = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * .85, len, 8).translate(0, -len / 2, 0), mat); g.add(m);
-  if (gun) { g.add(new THREE.Mesh(new THREE.BoxGeometry(.13, .2, .13).translate(0, -len + .04, 0), gunMat)); g.add(new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .14).translate(0, -len + .1, 0), accent)); g.userData.gun = g.children.slice(1); }
+  if (gun) { g.add(new THREE.Mesh(new THREE.BoxGeometry(.13, .2, .13).translate(0, -len + .04, 0), gunMat)); g.add(new THREE.Mesh(new THREE.BoxGeometry(.14, .03, .14).translate(0, -len + .1, 0), accent)); }
   return g;
 };
 const arms = [-1, 1].map(s => { const a = limb(.6, .065, jacket, true); a.position.set(s * .27, .93, 0); body.add(a); return a; });
 const legs = [-1, 1].map(s => { const l = limb(.82, .085, trousers, false); l.position.set(s * .11, .38, 0); body.add(l); return l; });
 body.position.y = -.1;
-// the balloon bunch, tied to the backpack
-const bunchG = new THREE.Group(); scene.add(bunchG);
-const bunchBalloons = BALLOON_COLS.map((c, k) => {
-  const m = new THREE.Mesh(BALLOON_GEO, balloonMats[k]); const a = k * 2.4, r = k ? .35 + (k % 3) * .22 : 0;
-  m.userData.home = new V3(Math.cos(a) * r, 2.5 + (k % 4) * .28, Math.sin(a) * r); bunchG.add(m); return m;
-});
-const strings = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xd8dcef, transparent: true, opacity: .7 }));
-strings.geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(BALLOON_COLS.length * 6), 3)); scene.add(strings);
-const freed = [];   // balloons let go or popped, drifting off
-function drawBalloons() {
-  bunchBalloons.forEach((m, k) => m.visible = balloonMode() && k < S.balloons);
-  pack.visible = balloonMode(); strings.visible = balloonMode();
-  arms.forEach(a => a.userData.gun.forEach(g => g.visible = !balloonMode()));
-  $('bals').innerHTML = balloonMode() ? Array.from({ length: S.balloons }, (_, k) => `<svg viewBox="0 0 14 20"><ellipse cx="7" cy="7" rx="5.5" ry="6.5" fill="#${BALLOON_COLS[k].toString(16).padStart(6, '0')}"/><path d="M7 13.5v6" stroke="#d8dcef"/></svg>`).join('') : '';
-}
-function letGoVisual() { const m = bunchBalloons[S.balloons]; const f = m.clone(); m.getWorldPosition(f.position); scene.add(f); freed.push({ m: f, t: 0, pop: false }); }
-function burst() { const m = bunchBalloons[S.balloons]; const f = new THREE.Mesh(BALL, basic(0xffffff)); m.getWorldPosition(f.position); f.scale.setScalar(.5); scene.add(f); freed.push({ m: f, t: 0, pop: true }); }
 const DOWN = new V3(0, -1, 0), heroUp = new V3(0, 1, 0), mBasis = new THREE.Matrix4(), qT = new THREE.Quaternion(), eul = new THREE.Euler();
 const ropes = hooks.map(() => {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1, 6).translate(0, .5, 0), new THREE.MeshBasicMaterial({ color: 0xe6eeff }));
@@ -840,7 +785,7 @@ function drawHero(dt) {
   arms.forEach((a, i) => {
     const h = hooks[i], tgt = h.state === 'on' || h.state === 'fly' ? h.a : null;
     if (tgt) { tD.copy(tgt); a.parent.worldToLocal(tD).sub(a.position).normalize(); qT.setFromUnitVectors(DOWN, tD); }
-    else qT.setFromEuler(eul.set(running ? Math.sin(S.runPhase + i * Math.PI) * .9 : balloonMode() ? -2.6 : -.6, 0, (i ? -1 : 1) * .35));
+    else qT.setFromEuler(eul.set(running ? Math.sin(S.runPhase + i * Math.PI) * .9 : -.6, 0, (i ? -1 : 1) * .35));
     a.quaternion.slerp(qT, 1 - Math.exp(-18 * dt));
     a.localToWorld(wrist[i].set(0, -.56, 0));
   });
@@ -860,52 +805,6 @@ function drawHero(dt) {
     r.m.quaternion.setFromUnitVectors(Y, tA.divideScalar(Math.max(.001, len)));
     r.claw.position.copy(tip);
   });
-  if (balloonMode()) {   // the bunch trails a little behind and bobs
-    pack.getWorldPosition(tD);
-    bunchG.position.lerp(tA.copy(tD).addScaledVector(v, -.06), 1 - Math.exp(-8 * dt));
-    const pos = strings.geometry.attributes.position, t = performance.now() / 1000;
-    bunchBalloons.forEach((m, k) => {
-      m.position.copy(m.userData.home).add(tB.set(Math.sin(t * 1.3 + k) * .08, Math.sin(t * 1.7 + k * 2) * .06, 0));
-      pos.setXYZ(k * 2, tD.x, tD.y + .1, tD.z);
-      m.getWorldPosition(tC); pos.setXYZ(k * 2 + 1, tC.x, tC.y - .48, tC.z);
-      if (!m.visible) { pos.setXYZ(k * 2, 0, -1e4, 0); pos.setXYZ(k * 2 + 1, 0, -1e4, 0); }
-    });
-    pos.needsUpdate = true;
-  }
-  for (let k = freed.length - 1; k >= 0; k--) {
-    const f = freed[k]; f.t += dt;
-    if (f.pop) f.m.scale.setScalar(.5 + f.t * 6); else f.m.position.y += dt * (4 + f.t * 3);
-    if (f.pop) f.m.material.opacity = 1 - f.t / .2;
-    if (f.t > (f.pop ? .2 : 4)) { scene.remove(f.m); freed.splice(k, 1); }
-  }
-}
-
-// ---------- birds: they cross the rows and pop balloons ----------
-const birds = [];
-(() => {
-  const mat = basic(0x0a0c18);
-  for (let i = 0; i < 10; i++) {
-    const g = new THREE.Group();
-    const bd = new THREE.Mesh(BALL, mat); bd.scale.set(.18, .14, .4); g.add(bd);
-    const wings = [-1, 1].map(s => { const w = new THREE.Mesh(new THREE.BoxGeometry(.7, .03, .28).translate(s * .35, 0, 0), mat); g.add(w); return w; });
-    g.visible = false; scene.add(g); birds.push({ g, wings, v: new V3(), scatter: 0, t: Math.random() * 6 });
-  }
-})();
-function updateBirds(dt) {
-  const on = balloonMode() && S.phase !== 'menu', p = H.p;
-  for (const b of birds) {
-    if (!on) { b.g.visible = false; continue; }
-    b.t += dt;
-    if (!b.g.visible || b.g.position.z < p.z - 30 || Math.abs(b.g.position.x) > 120) {   // a new bird ahead, crossing the rows
-      if (Math.random() > dt * .5) { b.g.visible = false; continue; }
-      const s = Math.random() < .5 ? -1 : 1;
-      b.g.position.set(s * 70, p.y + R(-2, 6), p.z + R(60, 140)); b.v.set(-s * R(7, 11), 0, R(-2, 2)); b.scatter = 0; b.g.visible = true;
-    }
-    if (b.scatter) b.v.y += dt * 12;
-    b.g.position.addScaledVector(b.v, dt);
-    b.g.rotation.y = Math.atan2(b.v.x, b.v.z);
-    const f = Math.sin(b.t * 14) * .7; b.wings[0].rotation.z = f; b.wings[1].rotation.z = -f;
-  }
 }
 
 // ---------- camera: behind and a little above, following the way you're going ----------
@@ -913,7 +812,7 @@ function updateCamera(dt, snap) {
   const p = H.p, v = H.v;
   tA.set(v.x, 0, v.z);
   if (tA.lengthSq() > 9) camDir.lerp(tA.normalize(), snap ? 1 : 1 - Math.exp(-2.6 * dt)).normalize();
-  const speed = v.length(), up = (tall() ? T.camUpTall : T.camUp) + (balloonMode() ? 1.2 : 0);
+  const speed = v.length(), up = tall() ? T.camUpTall : T.camUp;
   tB.copy(p).addScaledVector(camDir, -(tall() ? T.camBackTall : T.camBack)).add(tC.set(0, up, 0));
   tD.subVectors(tB, p); const want = tD.length(); tD.divideScalar(want);
   const hit = rayBoxes(p, tD, want, p.z - 20, p.z + 20);   // keep the camera out of buildings
@@ -933,42 +832,38 @@ function updateCamera(dt, snap) {
 }
 
 // ============================================================================================
-// INPUT. Grapple: a tap shoots that thumb's hook where you tapped; hold to stay on; slide up to
-// reel in, down to let rope out. A quick swipe instead jumps (up) or slides and rolls (down).
-// Balloons: left thumb jumps, holds to float, swipes down to slide or roll; right thumb lets a
-// balloon go. Tilt steers in both.
+// INPUT (Simon, 2026-11-19: swing and jump only, one thumb): hold anywhere to swing, and
+// the rope goes to the side you tilt; let go to fly; a tap jumps. While holding, slide up to reel
+// in and down to let rope out. A quick swipe down slides or rolls.
 // ============================================================================================
 const ptrs = new Map();
 function ring(x, y) { const r = document.createElement('div'); r.className = 'ring'; r.innerHTML = '<i></i>'; r.style.left = x + 'px'; r.style.top = y + 'px'; $('rings').appendChild(r); return r; }
-function press(side, x, y, id, withRing) {
-  const q = { side, i: side, x0: x, y0: y, t0: performance.now(), ring: withRing ? ring(x, y) : null };
-  ptrs.set(id, q);
-  if (balloonMode()) {
-    if (side === 0) { if (!jump() && H.state === 'air') SFX.puff(); S.float = true; if (S.hint === 1) hintNext(); }
-    else popBalloon('let');
-    return;
-  }
-  let i = side;
-  if (hooks[i].ptr != null && hooks[1 - i].ptr == null) i = 1 - i;
-  for (const [k, o] of ptrs) if (k !== id && o.i === i) { ptrs.delete(k); o.ring?.remove(); }
-  q.i = i; hooks[i].ptr = id; hooks[i].reel = 0; hooks[i].slide = 0;
-  fire(i, x, y);
+const TAP = 160;   // ms: on a roof or wall, a press shorter than this is a jump, not a rope
+function press(x, y, id, withRing) {
+  const q = { x0: x, y0: y, t0: performance.now(), ring: withRing ? ring(x, y) : null, fired: false };
+  // one thumb, anywhere. A new finger takes over from an old one.
+  for (const [k, o] of ptrs) { ptrs.delete(k); o.ring?.remove(); }
+  ptrs.set(id, q); S.thumbReel = 0; S.thumbSlide = 0;
+  if (H.state === 'air') startSwing(q);   // in the air the rope goes at once; on a roof it waits to see if this is a tap
+}
+function startSwing(q) {
+  q.fired = true;
+  let side = tiltSide();
+  if (!side && !S.tiltOK) side = q.x0 < APP.w * .38 ? -1 : q.x0 > APP.w * .62 ? 1 : 0;   // no tilt sensor: the side of the screen you press
+  swing(side);
+}
+function pollPress() {   // a press held past a tap becomes a swing
+  for (const q of ptrs.values()) if (!q.fired && performance.now() - q.t0 > TAP) startSwing(q);
 }
 function lift(id, x, y) {
   const q = ptrs.get(id); if (!q) return;
   ptrs.delete(id); q.ring?.remove();
   const dy = y == null ? 0 : y - q.y0, dx = x == null ? 0 : x - q.x0;
   const swipe = performance.now() - q.t0 < 280 && Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx) * 1.2 ? (dy < 0 ? 'up' : 'down') : null;
-  if (balloonMode()) {
-    if (q.side === 0) { S.float = false; if (swipe === 'down') duck(); }
-    return;
-  }
-  const h = hooks[q.i];
-  if (h.ptr === id) {
-    h.ptr = null; h.reel = 0; h.slide = 0;
-    if (swipe) { release(q.i, true); if (swipe === 'up') jump(); else duck(); }   // a swipe is a move, not a rope
-    else release(q.i);
-  }
+  S.thumbReel = 0; S.thumbSlide = 0;
+  if (!q.fired) { if (swipe === 'down') duck(); else jump(); return; }   // a tap jumps; a quick swipe down slides or rolls
+  if (swipe === 'down') { for (const h of hooks) release(h.i, true); duck(); }
+  else letGo();
 }
 const playing = () => S.phase === 'play' && !S.bot;
 cv.addEventListener('pointerdown', e => {
@@ -976,33 +871,35 @@ cv.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse' || !playing()) return;
   e.preventDefault();
   const [x, y] = toApp(e);
-  press(x < APP.w / 2 ? 0 : 1, x, y, e.pointerId, true);
+  press(x, y, e.pointerId, true);
 });
 addEventListener('pointermove', e => {
   const q = ptrs.get(e.pointerId); if (!q) return;
   const [x, y] = toApp(e);
   if (q.ring) { const i = q.ring.firstChild, dx = clamp(x - q.x0, -32, 32), dy = clamp(y - q.y0, -32, 32); i.style.transform = `translate(${dx}px,${dy}px)`; }
-  if (balloonMode()) return;
-  const h = hooks[q.i]; if (h.ptr !== e.pointerId) return;
-  const r = -(y - q.y0) / 55; h.reel = Math.abs(r) < .18 || performance.now() - q.t0 < 200 ? 0 : clamp(r, -1, 1);
-  h.slide = clamp((x - q.x0) / 70, -1, 1);   // steering for phones that give no tilt
+  const r = -(y - q.y0) / 55; S.thumbReel = Math.abs(r) < .18 || performance.now() - q.t0 < 200 ? 0 : clamp(r, -1, 1);
+  S.thumbSlide = clamp((x - q.x0) / 70, -1, 1);   // steering for phones that give no tilt
 });
 addEventListener('pointerup', e => { const [x, y] = toApp(e); lift(e.pointerId, x, y); });
 addEventListener('pointercancel', e => lift(e.pointerId));
-cv.addEventListener('mousedown', e => { audio(); if (!playing() || e.button > 2 || e.button === 1) return; e.preventDefault(); const [x, y] = toApp(e); press(e.button === 2 ? 1 : 0, x, y, 'm' + e.button, false); });
+cv.addEventListener('mousedown', e => {
+  audio(); if (!playing() || e.button > 2 || e.button === 1) return; e.preventDefault();
+  const [x, y] = toApp(e);
+  if (e.button === 2) { jump(); return; }   // left button swings, right button jumps
+  press(x, y, 'm0', false);
+});
 addEventListener('mouseup', e => lift('m' + e.button));
 cv.addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('wheel', e => { if (!playing() || balloonMode()) return; S.wheelDir = e.deltaY < 0 ? 1 : -1; S.wheelT = .18; S.reeled ||= e.deltaY < 0; }, { passive: true });
+addEventListener('wheel', e => { if (!playing()) return; S.wheelDir = e.deltaY < 0 ? 1 : -1; S.wheelT = .18; S.reeled ||= e.deltaY < 0; }, { passive: true });
 const keys = {};
 addEventListener('keydown', e => {
   if (keys[e.code]) return; keys[e.code] = true;
   if ((e.code === 'Escape' || e.code === 'KeyP') && S.phase === 'play') return pauseGame();
   if (!playing()) return;
-  if (e.code === 'Space') { e.preventDefault(); if (!jump() && balloonMode()) SFX.puff(); S.float = true; }
-  if (e.code === 'KeyC' || (balloonMode() && (e.code === 'KeyS' || e.code === 'ArrowDown'))) duck();
-  if (balloonMode() && (e.code === 'KeyE' || e.code === 'ShiftLeft' || e.code === 'ShiftRight')) popBalloon('let');
+  if (e.code === 'Space') { e.preventDefault(); jump(); }
+  if (e.code === 'KeyC') duck();
 });
-addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') S.float = false; });
+addEventListener('keyup', e => { keys[e.code] = false; });
 // tilt: steer like a wheel, measured from how the phone was held when the run started
 addEventListener('deviceorientation', e => {
   if (e.beta == null || e.gamma == null) return;
@@ -1020,10 +917,11 @@ function readSteer(dt) {
     if (S.tiltZero == null) S.tiltZero = S.tiltRaw;
     let d = S.tiltRaw - S.tiltZero; d = ((d + 540) % 360) - 180;
     s += Math.abs(d) < 3 ? 0 : clamp((d - Math.sign(d) * 3) / (T.tiltFull - 3), -1, 1);
-  } else s += hooks[0].slide + hooks[1].slide;
+  } else s += S.thumbSlide;
   H.steer = clamp(s, -1, 1);
+  pollPress();
   S.wheelT = Math.max(0, S.wheelT - dt);
-  S.keyReel = balloonMode() ? 0 : (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + (S.wheelT > 0 ? S.wheelDir : 0);
+  S.keyReel = clamp((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + (S.wheelT > 0 ? S.wheelDir : 0) + S.thumbReel, -1, 1);
   if (S.keyReel > 0) S.reeled = true;
 }
 
@@ -1073,10 +971,6 @@ const SFX = {
   land() { tone(.14, 'sine', 110, 50, .5); noise(.1, 'lowpass', 600, 200, 1, .3); },
   bonk() { tone(.15, 'square', 220, 120, .15); noise(.06, 'lowpass', 1500, 600, 1, .3); },
   crash() { tone(.6, 'sine', 95, 30, .4); noise(1.2, 'lowpass', 900, 120, 1, .45); },   // a soft whoosh into the cloud
-  pop() { noise(.07, 'highpass', 1200, 900, 1, .6); tone(.05, 'square', 900, 300, .12); },
-  letGo() { tone(.35, 'sine', 500, 900, .12); },
-  pickup() { tone(.09, 'triangle', 660, 660, .18); tone(.12, 'triangle', 990, 990, .16, .07); },
-  puff() { noise(.2, 'lowpass', 500, 300, 1, .12); },
 };
 const midi = m => 440 * 2 ** ((m - 69) / 12);
 function music() {   // A minor, F, C, E at 84 a minute: pads, a pulsing bass and a quiet hat
@@ -1118,35 +1012,31 @@ setMuteIcon();
 // ============================================================================================
 // FLOW: menu (the computer swings behind it), play, pause, end
 // ============================================================================================
-const HINTS = {
-  grapple: isTouch ? ['Tap a building to shoot a rope', 'Slide your thumb up to reel in', 'Tilt the phone to steer', 'Swipe up to jump, down to slide'] : ['Click a building to shoot a rope', 'Scroll up to reel in', 'A and D steer', 'Space jumps, C slides'],
-  balloon: isTouch ? ['Tap with your left thumb to jump, hold to float', 'Swipe down to slide under pipes or roll as you land', 'Right thumb lets a balloon go', 'Tilt the phone to steer'] : ['Space jumps, hold it to float', 'C slides under pipes, or rolls as you land', 'E lets a balloon go', 'A and D steer'],
-};
-function hintNext() { S.hint++; S.hintT = 0; showHint(); }
-function showHint() { const t = HINTS[S.mode][S.hint - 1]; $('hint').textContent = t || ''; $('hint').classList.toggle('on', !!t); }
-const learnedKey = () => 'gc-learned-' + S.mode;
-function startRun(mode = S.mode, asBot = false) {
-  S.mode = mode;
-  resetWorld((Math.random() * 1e9) | 0, mode);
+const HINTS = isTouch ? ['Hold to swing. Tilt to pick the side', 'Let go to fly. Tap to jump', 'Slide your thumb up to reel in'] : ['Hold the mouse button to swing', 'Let go to fly. Space jumps', 'A and D pick the side, the wheel reels in'];
+function hintNext() { if (S.hint >= HINTS.length) store.set(learnedKey(), '1'); S.hint++; S.hintT = 0; showHint(); }
+function showHint() { const t = HINTS[S.hint - 1]; $('hint').textContent = t || ''; $('hint').classList.toggle('on', !!t); }
+const learnedKey = () => 'gc-learned-grapple';
+function startRun(asBot = false) {
+  resetWorld((Math.random() * 1e9) | 0);
   startHero(); updateCamera(0, true);
   S.phase = 'play'; S.bot = asBot; S.tiltZero = null; S.reeled = false;
   S.hint = store.get(learnedKey()) === '1' || asBot ? 0 : 1; S.hintT = 0; showHint();
   for (const id of [...ptrs.keys()]) lift(id);
   $('menu').hidden = $('end').hidden = $('paused').hidden = true; $('hud').hidden = false; $('pause').hidden = false;
 }
-const bestKey = m => m === 'balloon' ? 'gc-best-b' : 'gc-best';
+const BEST = 'gc-best';
 function endRun() {
   S.phase = 'end'; S.endT = 0; SFX.crash();
   for (const h of hooks) h.state = 'off';
   $('hint').classList.remove('on'); $('pause').hidden = true;
-  const d = Math.floor(S.dist), prev = +store.get(bestKey(S.mode)) || 0;
+  const d = Math.floor(S.dist), prev = +store.get(BEST) || 0;
   $('enddist').textContent = `${d} m`;
   $('pb').textContent = d > prev ? 'New best!' : `Best ${prev} m.`;
-  if (d > prev && !S.bot) store.set(bestKey(S.mode), String(d));
+  if (d > prev && !S.bot) store.set(BEST, String(d));
   $('rank').textContent = ''; $('endboards').hidden = true; $('namebox').hidden = !(d > 0) || S.bot;
   $('nick').value = (store.get('gc-name') || '').slice(0, 20);
-  endRunData = S.bot ? null : { mode: S.mode, sent: false, run: { player: playerId(), score: d, seconds: Math.round(S.t), hooks: S.hooks, balloons: S.gotBalloons, version: VERSION } };
-  showBoards(S.mode, $('ebDay'), $('ebAll'), $('endboards'));
+  endRunData = S.bot ? null : { sent: false, run: { player: playerId(), score: d, seconds: Math.round(S.t), hooks: S.hooks, version: VERSION } };
+  showBoards($('ebDay'), $('ebAll'), $('endboards'));
   setTimeout(() => { if (S.phase === 'end') $('end').hidden = false; }, 1100);
 }
 function toMenu() {
@@ -1156,39 +1046,38 @@ function toMenu() {
   $('hint').classList.remove('on');
   menuRun(); loadMenu();
 }
-function menuRun() { S.mode = 'grapple'; resetWorld((Math.random() * 1e9) | 0, 'grapple'); startHero(); updateCamera(0, true); }
+function menuRun() { resetWorld((Math.random() * 1e9) | 0); startHero(); updateCamera(0, true); }
 function pauseGame() { if (S.phase !== 'play') return; S.phase = 'paused'; $('paused').hidden = false; for (const id of [...ptrs.keys()]) lift(id); }
-function play(mode) {
+function play() {
   audio(); goFullScreen();
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().catch(() => {});
-  startRun(mode);
+  startRun();
 }
-$('playG').onclick = () => play('grapple'); $('playB').onclick = () => play('balloon');
-$('again').onclick = () => startRun(S.mode); $('tomenu').onclick = toMenu; $('quit').onclick = toMenu;
+$('play').onclick = play;
+$('again').onclick = () => startRun(); $('tomenu').onclick = toMenu; $('quit').onclick = toMenu;
 $('resume').onclick = () => { $('paused').hidden = true; S.phase = 'play'; S.tiltZero = null; };
 $('pause').onclick = pauseGame;
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); else if (S.phase === 'menu') checkVersion(); });
 
-// ---------- high scores: the shared leaderboard Worker, one board per version ----------
+// ---------- high scores: the shared leaderboard Worker (the board keeps the game's first name) ----------
 let endRunData = null;
 function playerId() { let id = store.get('gc-player'); if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); store.set('gc-player', id); } return id; }
 const local = () => /^(localhost|127\.|\[::1\])/.test(location.hostname) || location.protocol === 'file:';
 const LB = {
-  url: 'https://leaderboards.ai-wizards.workers.dev/',
-  game: m => m === 'balloon' ? 'grapple-city-balloons' : 'grapple-city',
+  url: 'https://leaderboards.ai-wizards.workers.dev/grapple-city/',
   async req(path, init = {}) {
     const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 5000);
     try { const r = await fetch(this.url + path, { ...init, signal: ac.signal }); if (!r.ok) { console.warn('Leaderboard', path, r.status); return null; } return await r.json(); }
     catch (e) { console.warn('Leaderboard', path, e?.message); return null; } finally { clearTimeout(timer); }
   },
-  async submit(mode, run) {
+  async submit(run) {
     if (local()) return null;   // a local test copy never writes to the real board
-    const x = await this.req(this.game(mode) + '/submit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(run) });
+    const x = await this.req('submit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(run) });
     return x && typeof x === 'object' ? { rankAllTime: +x.rankAllTime || null, rankDaily: +x.rankDaily || null } : null;
   },
-  async top(mode, scope, n = 5) {
+  async top(scope, n = 5) {
     if (local()) return null;
-    const d = await this.req(`${this.game(mode)}/top?scope=${scope}&n=${n}`);
+    const d = await this.req(`top?scope=${scope}&n=${n}`);
     return Array.isArray(d) ? d.slice(0, n).map(x => ({ name: String(x?.name || 'Anonymous').slice(0, 20), score: +x?.score || 0 })) : null;
   },
 };
@@ -1198,25 +1087,23 @@ function fillList(ol, rows) {
   if (!rows.length) { ol.innerHTML = '<li>No runs yet</li>'; return; }
   for (const r of rows) { const li = document.createElement('li'); li.textContent = `${r.name} ${r.score} m`; ol.appendChild(li); }
 }
-async function showBoards(mode, day, all, wrap) {
-  const [d, a] = await Promise.all([LB.top(mode, 'daily'), LB.top(mode, 'alltime')]);
+async function showBoards(day, all, wrap) {
+  const [d, a] = await Promise.all([LB.top('daily'), LB.top('alltime')]);
   if (wrap) { if (!d && !a) return; wrap.hidden = false; }
   fillList(day, d); fillList(all, a);
 }
-async function loadMenu() {
-  const g = +store.get(bestKey('grapple')) || 0, b = +store.get(bestKey('balloon')) || 0;
-  $('best').textContent = g || b ? `Your best: grapple ${g} m, balloons ${b} m` : '';
-  const [tg, tb] = await Promise.all([LB.top('grapple', 'alltime'), LB.top('balloon', 'alltime')]);
-  fillList($('topG'), tg); fillList($('topB'), tb);
+function loadMenu() {
+  const b = +store.get(BEST) || 0; $('best').textContent = b ? `Your best ${b} m` : '';
+  showBoards($('topDay'), $('topAll'));
 }
 $('save').onclick = async () => {
   const st = endRunData; if (!st || st.sent) return; st.sent = true;
   const name = $('nick').value.trim().slice(0, 20); store.set('gc-name', name);
   $('save').disabled = true; $('rank').textContent = 'Saving';
-  const res = await LB.submit(st.mode, { ...st.run, name: name || null });
+  const res = await LB.submit({ ...st.run, name: name || null });
   $('save').disabled = false; $('namebox').hidden = true;
   $('rank').textContent = res ? `#${res.rankDaily ?? '?'} today, #${res.rankAllTime ?? '?'} all time` : 'The scoreboard is offline. Your best is saved on this phone.';
-  showBoards(st.mode, $('ebDay'), $('ebAll'), $('endboards'));
+  showBoards($('ebDay'), $('ebAll'), $('endboards'));
 };
 $('nick').addEventListener('keydown', e => { if (e.key === 'Enter') $('save').click(); });
 async function checkVersion() {
@@ -1243,8 +1130,7 @@ function tick(dt) {
       S.t += dt; S.dist = Math.max(S.dist, H.p.z - S.startZ);
       if (S.hint) {
         S.hintT += dt;
-        const done = S.mode === 'grapple' ? (S.hint === 2 && (S.reeled || S.hintT > 7)) || (S.hint >= 3 && S.hintT > 4) : S.hint >= 2 && S.hintT > 4.5;
-        if (done) { if (S.hint === 4) store.set(learnedKey(), '1'); hintNext(); }
+        if (S.hint >= 2 && S.hintT > 4.5) hintNext();   // the first hint goes when you do the thing
       }
       const d = Math.floor(S.dist); if (d !== shownDist) { shownDist = d; $('dist').textContent = `${d} m`; }
     }
@@ -1254,8 +1140,6 @@ function tick(dt) {
   updateWorld(H.p.z);
   for (const b of blinkers) b.visible = (performance.now() / 700 | 0) % 2 === 0;
   const t = performance.now() / 1000;
-  for (const pk of pickups) if (!pk.taken) pk.g.position.y += Math.sin(t * 1.6 + pk.bob) * .004;
-  updateBirds(dt);
   drawHero(dt);
   updateCamera(dt);
   updateAudio(dt);
@@ -1264,37 +1148,37 @@ function tick(dt) {
 addEventListener('resize', resize);
 resize(); menuRun(); loadMenu(); checkVersion();
 
-// ---------- tests: sim(seconds, mode) runs the computer player through several cities ----------
-function sim(secs, mode = 'grapple', seeds = [11, 22, 33, 44, 55]) {
+// ---------- tests: sim(seconds) runs the computer player through several cities ----------
+function sim(secs, seeds = [11, 22, 33, 44, 55]) {
   const out = [];
   for (const sd of seeds) {
-    S.mode = mode; resetWorld(sd, mode); startHero(); updateCamera(0, true);
+    resetWorld(sd); startHero(); updateCamera(0, true);
     S.phase = 'menu'; let t = 0, maxV = 0, onT = 0, wallT = 0, roofT = 0, minY = 1e9;
     while (t < secs && !S.crashed) {
       botThink(1 / 60);
       for (let k = 0; k < 3; k++) step(STEP);
-      updateCamera(1 / 60); updateWorld(H.p.z); if (mode === 'balloon') { S.phase = 'sim'; updateBirds(1 / 60); S.phase = 'menu'; }
+      updateCamera(1 / 60); updateWorld(H.p.z);
       t += 1 / 60; maxV = Math.max(maxV, H.v.length()); minY = Math.min(minY, H.p.y);
       if (hooks.some(h => h.state === 'on')) onT += 1 / 60;
       if (H.state === 'wall') wallT += 1 / 60; if (H.state === 'roof') roofT += 1 / 60;
     }
-    out.push({ seed: sd, secs: +t.toFixed(1), dist: Math.round(H.p.z - S.startZ), fell: S.crashed, y: +H.p.y.toFixed(0), minY: +minY.toFixed(0), maxV: +maxV.toFixed(1), onRope: +(onT / t).toFixed(2), wall: +wallT.toFixed(1), roof: +roofT.toFixed(1), hooks: S.hooks, balloons: S.balloons, got: S.gotBalloons, lost: S.lostBalloons });
+    out.push({ seed: sd, secs: +t.toFixed(1), dist: Math.round(H.p.z - S.startZ), fell: S.crashed, y: +H.p.y.toFixed(0), minY: +minY.toFixed(0), maxV: +maxV.toFixed(1), onRope: +(onT / t).toFixed(2), wall: +wallT.toFixed(1), roof: +roofT.toFixed(1), hooks: S.hooks });
   }
   menuRun();
   return out;
 }
-function trace(secs, mode, sd, every = .5) {   // what the computer player does, second by second
-  S.mode = mode; resetWorld(sd, mode); startHero(); updateCamera(0, true); S.phase = 'menu';
+function trace(secs, sd, every = .5) {   // what the computer player does, second by second
+  resetWorld(sd); startHero(); updateCamera(0, true); S.phase = 'menu';
   const log = [];
   for (let t = 0; t < secs && !S.crashed; t += 1 / 60) {
     botThink(1 / 60); for (let k = 0; k < 3; k++) step(STEP); updateCamera(1 / 60); updateWorld(H.p.z);
-    if (Math.abs(t / every - Math.round(t / every)) < 1 / 120) log.push(`${t.toFixed(1)} ${H.state} p=${H.p.toArray().map(x => x.toFixed(0))} v=${H.v.toArray().map(x => x.toFixed(1))} steer=${H.steer.toFixed(2)} roofTop=${H.roof?.y1?.toFixed(0)} st=${H.stumbleT.toFixed(1)} bal=${S.balloons}`);
+    if (Math.abs(t / every - Math.round(t / every)) < 1 / 120) log.push(`${t.toFixed(1)} ${H.state} p=${H.p.toArray().map(x => x.toFixed(0))} v=${H.v.toArray().map(x => x.toFixed(1))} steer=${H.steer.toFixed(2)} roofTop=${H.roof?.y1?.toFixed(0)} st=${H.stumbleT.toFixed(1)}`);
   }
   menuRun(); return log.join('\n');
 }
-window.__game = { S, H, T, hooks, boxes: () => boxes, pickups: () => pickups, trace, startRun, endRun, step, sim, fireAt, release, jump, duck, aimHit, tick, VERSION, camera, renderer, scene };
+window.__game = { S, H, T, hooks, boxes: () => boxes, trace, swing, autoAnchor, letGo, press, lift, startRun, endRun, step, sim, fireAt, release, jump, duck, aimHit, tick, VERSION, camera, renderer, scene };
 const hash = location.hash.slice(1);
-if (hash.startsWith('demo')) { const [, m, s] = hash.split('-'); startRun(m === 'b' ? 'balloon' : 'grapple', true); for (let i = 0; i < (+s || 0) * 60; i++) tick(1 / 60); }
+if (hash.startsWith('demo')) { const s = hash.split('-')[1]; startRun(true); for (let i = 0; i < (+s || 0) * 60; i++) tick(1 / 60); }
 requestAnimationFrame(frame);
 </script>
 </body>

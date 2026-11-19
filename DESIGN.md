@@ -1,4 +1,6 @@
-# Grapple City: design v1
+# City Swinger: design
+
+Called Grapple City until 2026-11-19. Where this file and the rulings at the end disagree, the later ruling wins.
 
 From the interview on 2026-11-19. Built from the one-file canvas game template in Atlas (Game development goal). Every later ruling is dated where it appears.
 
@@ -63,3 +65,9 @@ Answers from the same day:
 - Each version keeps its own best distance and leaderboard.
 
 - **Upright (Simon, 2026-11-19: "I want grapple city to be vertical"):** played in portrait on a phone. Nothing is turned sideways any more; the camera sits further back and higher when the screen is tall so both sides of the street stay in view. Android goes full screen locked upright; a sideways screen or a computer window still works.
+
+## Rulings of 2026-11-19, later the same day
+- **Swing and jump only, one thumb** (Simon: "it needs to be swing and jump only not the two hands. Whichever way you tilt is which way the hook goes"). Hold anywhere to swing: the rope picks its own anchor, up and ahead, on the side the phone is tilted to (either side when it is level). Let go to fly. A tap jumps. Tapping where to shoot and the hook for each thumb are gone. Kept on the same thumb: slide up to reel in, down to let rope out, and a quick swipe down to slide or roll.
+- **No tilt sensor:** the rope goes to the side of the screen you press; on a computer, the side you steer with A and D. The left mouse button swings, the right button or Space jumps.
+- **The balloon version is a different game** (Simon). It is out of this one and kept at the git tag `balloons-prototype`.
+- **Renamed City Swinger** (Simon), live at https://city-swinger.vercel.app. The folder, the leaderboard board (`grapple-city`) and the saved-score keys keep the first name.
