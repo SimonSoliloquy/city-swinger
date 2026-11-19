@@ -1,0 +1,86 @@
+{
+ "1": {
+  "class_type": "CheckpointLoaderSimple",
+  "inputs": {
+   "ckpt_name": "sd_xl_base_1.0.safetensors"
+  }
+ },
+ "2": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "text": "wide panoramic matte painting of a city of extremely tall skyscrapers rising out of a sea of clouds at night, midnight blue metallic glass towers, warm yellow lit windows, deep dark blue starry night sky, moonlight on the clouds, distant view, cinematic, highly detailed",
+   "clip": [
+    "1",
+    1
+   ]
+  }
+ },
+ "3": {
+  "class_type": "CLIPTextEncode",
+  "inputs": {
+   "text": "text, letters, watermark, signature, logo, people, person, daylight, sunset, orange sky, blurry, lowres, frame, border",
+   "clip": [
+    "1",
+    1
+   ]
+  }
+ },
+ "4": {
+  "class_type": "EmptyLatentImage",
+  "inputs": {
+   "width": 1536,
+   "height": 640,
+   "batch_size": 1
+  }
+ },
+ "5": {
+  "class_type": "KSampler",
+  "inputs": {
+   "model": [
+    "1",
+    0
+   ],
+   "positive": [
+    "2",
+    0
+   ],
+   "negative": [
+    "3",
+    0
+   ],
+   "latent_image": [
+    "4",
+    0
+   ],
+   "seed": 101,
+   "steps": 22,
+   "cfg": 6.5,
+   "sampler_name": "dpmpp_2m",
+   "scheduler": "karras",
+   "denoise": 1.0
+  }
+ },
+ "6": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "5",
+    0
+   ],
+   "vae": [
+    "1",
+    2
+   ]
+  }
+ },
+ "7": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "images": [
+    "6",
+    0
+   ],
+   "filename_prefix": "grapple_city_skyline"
+  }
+ }
+}

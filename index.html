@@ -95,7 +95,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <script type="module">
 import * as THREE from 'three';
 
-const VERSION = 'v2026-11-19b';
+const VERSION = 'v2026-11-19c';
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -294,6 +294,17 @@ const veil = (() => {
 })();
 const PUFF = puffTex();
 const puffMats = [0x9aa6dc, 0x8e9bd4, 0xa9b3e6].map(c => new THREE.SpriteMaterial({ map: PUFF, color: c, transparent: true, opacity: .62, depthWrite: false }));
+// ComfyUI art made on the Mac mini (art/comfy/ has the workflows, tools/process_art.py the clean-up).
+// Each replaces its drawn-in-code stand-in once it loads; if one fails the stand-in stays.
+(() => {
+  const L = new THREE.TextureLoader(), srgb = t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+  L.load('art/skyline.webp', t => { srgb(t); t.wrapS = THREE.RepeatWrapping; t.repeat.set(7, 1); skyline.material.map = t; skyline.material.color.set(0xffffff); skyline.material.needsUpdate = true; });
+  L.load('art/clouds.jpg', t => {
+    for (const [o, rep] of [[cloudFloor, 10], [veil, 6]]) { const c = srgb(t.clone()); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rep, rep); c.needsUpdate = true; o.t = c; o.m.material.map = c; o.m.material.needsUpdate = true; }
+    cloudFloor.m.material.color.set(0xb8c2f0); veil.m.material.color.set(0xd0d8ff); veil.m.material.opacity = .45;
+  });
+  L.load('art/puff.webp', t => { srgb(t); for (const m of puffMats) { m.map = t; m.opacity = .8; m.needsUpdate = true; } });
+})();
 
 // ============================================================================================
 // THE CITY: an endless street of towers on both sides, made just ahead and dropped behind.
