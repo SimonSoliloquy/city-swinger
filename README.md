@@ -1,6 +1,7 @@
 # City Swinger
 
-A third-person swinging game for phones, held upright, above a sea of cloud at night. One thumb:
+A third-person swinging game for phones, held upright: four rows of towers above a sea of cloud, parks on
+both edges, and a sunset ahead that shows the way. One thumb:
 hold to swing (the rope goes to the side you tilt the phone), let go to fly, tap to jump. Land on a
 roof and you just run. Called Grapple City at first; the balloon version it once had is at the tag `balloons-prototype`.
 

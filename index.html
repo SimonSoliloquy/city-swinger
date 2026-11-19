@@ -94,7 +94,7 @@ h2 { margin: 0; font-size: 54px; line-height: 1; font-weight: 400; }
 <script type="module">
 import * as THREE from 'three';
 
-const VERSION = 'v2026-11-19h';
+const VERSION = 'v2026-11-19i';
 const $ = id => document.getElementById(id);
 const V3 = THREE.Vector3;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -121,9 +121,17 @@ const T = {
   camBackTall: 11, camUpTall: 3.4, vfovTall: 84,   // held upright: further back and higher, to see both sides of the street
   tiltFull: 24,
 };
-const STEP = 1 / 180, R_H = 0.45, STREET = 15;
+const STEP = 1 / 180, R_H = 0.45;
 const CLOUD = 60;                  // the top of the cloud sea; sink into it and the run is over
 const BASE = CLOUD - 30;           // towers start inside the clouds
+// Four rows of towers along three streets (Simon, 2026-11-19: "four rows of buildings"), and parks
+// beyond the outer rows where there is nothing to swing from. Distances from the middle of the city:
+//   centre street |x| < 15 · inner rows 15-47 · outer streets 47-73 · outer rows 73-105 · parks beyond 107
+const ROWS = [
+  { s: -1, face: 15, street: 0 }, { s: 1, face: 15, street: 0 },      // the inner rows face the centre street
+  { s: -1, face: 73, street: -60 }, { s: 1, face: 73, street: 60 },   // the outer rows face the outer streets
+];
+const PARK = 107;
 
 let seed = 1;
 const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -136,10 +144,10 @@ const R = (a, b) => a + (b - a) * rnd();
 const app = $('app'), cv = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x1f2a5a, 0.0042);
+scene.fog = new THREE.FogExp2(0x2c2a5e, 0.0042);
 const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 1400);
-scene.add(new THREE.HemisphereLight(0x7d8fd8, 0x3a4790, 1.0));
-const moonLight = new THREE.DirectionalLight(0xc4d0ff, 1.5); moonLight.position.set(-0.45, 0.75, 0.6); scene.add(moonLight);
+scene.add(new THREE.HemisphereLight(0x8a86c8, 0x3a4790, 1.0));
+const sunLight = new THREE.DirectionalLight(0xffb27a, 1.3); sunLight.position.set(0.15, 0.3, 1); scene.add(sunLight);   // from the sunset ahead
 const fillLight = new THREE.DirectionalLight(0x6d7fd0, 0.5); fillLight.position.set(0.6, 0.3, -0.7); scene.add(fillLight);
 
 const APP = { w: 800, h: 450, rot: false };
@@ -230,13 +238,18 @@ function puffTex() {
 }
 
 // sky, stars, moon and a far skyline, all following the camera
-const sky = (() => {
-  const g = new THREE.SphereGeometry(1200, 32, 16), pos = g.attributes.position, col = [];
-  const top = new THREE.Color(0x02040c), mid = new THREE.Color(0x0a1436), low = new THREE.Color(0x2a3a78), c = new THREE.Color();
+const sky = (() => {   // night overhead and behind you; the sunset glows on the horizon ahead (+z), where the run goes
+  const g = new THREE.SphereGeometry(1200, 48, 24), pos = g.attributes.position, col = [];
+  const top = new THREE.Color(0x02040c), mid = new THREE.Color(0x0a1436), low = new THREE.Color(0x2a3a78);
+  const gold = new THREE.Color(0xffa24a), rose = new THREE.Color(0xff6470), plum = new THREE.Color(0x7a3f86), night = new THREE.Color(), sun = new THREE.Color();
+  const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i) / 1200;
-    if (y < 0.02) c.copy(low); else if (y < 0.3) c.copy(low).lerp(mid, (y - 0.02) / 0.28); else c.copy(mid).lerp(top, Math.min(1, (y - 0.3) / 0.5));
-    col.push(c.r, c.g, c.b);
+    const y = pos.getY(i) / 1200, z = pos.getZ(i) / 1200;
+    if (y < 0.02) night.copy(low); else if (y < 0.3) night.copy(low).lerp(mid, (y - 0.02) / 0.28); else night.copy(mid).lerp(top, Math.min(1, (y - 0.3) / 0.5));
+    const yy = Math.max(0, y);
+    if (yy < 0.07) sun.copy(gold).lerp(rose, yy / 0.07); else if (yy < 0.2) sun.copy(rose).lerp(plum, (yy - 0.07) / 0.13); else sun.copy(plum).lerp(mid, Math.min(1, (yy - 0.2) / 0.3));
+    const w = Math.pow(smooth(-0.25, 0.95, z), 1.4) * (1 - smooth(0.05, 0.6, y));
+    night.lerp(sun, w); col.push(night.r, night.g, night.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
@@ -244,7 +257,11 @@ const sky = (() => {
 })();
 const stars = (() => {
   const p = [];
-  for (let i = 0; i < 700; i++) { const a = Math.random() * Math.PI * 2, y = 0.12 + Math.random() * 0.88, r = Math.sqrt(1 - y * y); p.push(Math.cos(a) * r * 1150, y * 1150, Math.sin(a) * r * 1150); }
+  for (let i = 0; i < 900; i++) {
+    const a = Math.random() * Math.PI * 2, y = 0.12 + Math.random() * 0.88, r = Math.sqrt(1 - y * y), z = Math.sin(a) * r;
+    if (z > 0.15 && y < 0.55) continue;   // no stars in the sunset
+    p.push(Math.cos(a) * r * 1150, y * 1150, z * 1150);
+  }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
   const s = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xdfe6ff, size: 1.6, sizeAttenuation: false, fog: false, depthWrite: false, transparent: true, opacity: .85 }));
   s.renderOrder = -2; scene.add(s); return s;
@@ -257,6 +274,16 @@ const moon = (() => {
   g.fillStyle = 'rgba(160,170,210,.35)'; for (const [x, y, r] of [[58, 58, 5], [70, 70, 4], [69, 56, 3]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c, false), fog: false, depthWrite: false, transparent: true }));
   s.scale.set(220, 220, 1); s.renderOrder = -2; scene.add(s); return s;
+})();
+const sunDisc = (() => {   // the setting sun, low on the horizon straight ahead
+  const [c, g] = canvas(256, 256);
+  let gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(255,214,150,.95)'); gr.addColorStop(.2, 'rgba(255,170,90,.55)'); gr.addColorStop(.5, 'rgba(255,110,80,.18)'); gr.addColorStop(1, 'rgba(255,90,90,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  gr = g.createRadialGradient(128, 128, 0, 128, 128, 30); gr.addColorStop(0, '#fff6dc'); gr.addColorStop(.75, '#ffd27a'); gr.addColorStop(1, '#ff9a4a');
+  g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 30, 0, Math.PI * 2); g.fill();
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c, false), fog: false, depthWrite: false, transparent: true }));
+  s.scale.set(330, 330, 1); s.renderOrder = -2; scene.add(s); return s;
 })();
 function skylineTexture() {
   const [c, g] = canvas(2048, 512);
@@ -290,6 +317,26 @@ const veil = (() => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshBasicMaterial({ color: 0xb4bfef, map: t, transparent: true, opacity: .7, depthWrite: false }));
   m.rotation.x = -Math.PI / 2; m.position.y = CLOUD + 3; scene.add(m); return { m, t };
 })();
+const parkTex = (() => {   // a night park seen from above: tree canopy, paths, a few lamps
+  const [c, g] = canvas(512, 512);
+  g.fillStyle = '#24462e'; g.fillRect(0, 0, 512, 512);
+  for (let k = 0; k < 420; k++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 6 + Math.random() * 16;
+    g.fillStyle = ['#2f5a3a', '#3a6b45', '#2a4f34', '#46804f'][k % 4];
+    for (const dx of [-512, 0, 512]) for (const dy of [-512, 0, 512]) { g.beginPath(); g.arc(x + dx, y + dy, r, 0, Math.PI * 2); g.fill(); }
+  }
+  g.strokeStyle = '#6f6a58'; g.lineWidth = 4;
+  for (let k = 0; k < 3; k++) { const x0 = 60 + Math.random() * 392; g.beginPath(); g.moveTo(x0, 0); g.bezierCurveTo(x0 + 90, 170, x0 - 90, 340, x0, 512); g.stroke(); }
+  g.fillStyle = '#ffd27a'; for (let k = 0; k < 26; k++) g.fillRect(Math.random() * 512, Math.random() * 512, 3, 3);
+  return tex(c);
+})();
+// Parks beyond the outer rows (Simon, 2026-11-19: "parks on the side where you can't swing"): nothing to
+// hook, and they lie on the cloud sea; reaching one ends the run, like the clouds.
+const parks = [-1, 1].map(side => {
+  const t = parkTex.clone(); t.repeat.set(5, 15); t.needsUpdate = true;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(600, 1800), new THREE.MeshBasicMaterial({ map: t, color: 0xd8e0d0 }));
+  m.rotation.x = -Math.PI / 2; m.userData.side = side; scene.add(m); return m;
+});
 const PUFF = puffTex();
 const puffMats = [0x9aa6dc, 0x8e9bd4, 0xa9b3e6].map(c => new THREE.SpriteMaterial({ map: PUFF, color: c, transparent: true, opacity: .62, depthWrite: false }));
 // ComfyUI art made on the Mac mini (art/comfy/ has the workflows, tools/process_art.py the clean-up).
@@ -299,7 +346,7 @@ const puffMats = [0x9aa6dc, 0x8e9bd4, 0xa9b3e6].map(c => new THREE.SpriteMateria
   L.load('art/skyline.webp', t => { srgb(t); t.wrapS = THREE.RepeatWrapping; t.repeat.set(7, 1); skyline.material.map = t; skyline.material.color.set(0xffffff); skyline.material.needsUpdate = true; });
   L.load('art/clouds.jpg', t => {
     for (const [o, rep] of [[cloudFloor, 10], [veil, 6]]) { const c = srgb(t.clone()); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(rep, rep); c.needsUpdate = true; o.t = c; o.m.material.map = c; o.m.material.needsUpdate = true; }
-    cloudFloor.m.material.color.set(0xb8c2f0); veil.m.material.color.set(0xd0d8ff); veil.m.material.opacity = .45;
+    cloudFloor.m.material.color.set(0xc4b6de); veil.m.material.color.set(0xeac8d8); veil.m.material.opacity = .42;   // lit by the sunset
   });
   L.load('art/puff.webp', t => { srgb(t); for (const m of puffMats) { m.map = t; m.opacity = .8; m.needsUpdate = true; } });
 })();
@@ -330,7 +377,7 @@ function block(x0, x1, y0, y1, z0, z1, mat, solid = true, flags) {
 }
 const blinkers = [];
 function light(x, y, z, z1, mat = redMat, s = .45) { const l = new THREE.Mesh(BALL, mat); l.scale.setScalar(s); l.position.set(x, y, z); addDecor(l, z1); if (mat === redMat) blinkers.push(l); }
-function roofProps(b, s) {   // the skyline: lit crowns, water tanks, antennas, spires, cranes. Roofs are clear to run on.
+function roofProps(b, s, street) {   // the skyline: lit crowns, water tanks, antennas, spires, cranes. Roofs are clear to run on.
   const top = b.y1, back = s < 0 ? b.x0 : b.x1, inward = -s, w = b.z1 - b.z0, dx = b.x1 - b.x0;
   if (rnd() < 0.35) block(b.x0 - .06, b.x1 + .06, top - 2.4, top - 1.6, b.z0 - .06, b.z1 + .06, crownMat, false);   // a lit crown
   if (rnd() < 0.3 && w > 10) {   // water tank on legs
@@ -345,7 +392,7 @@ function roofProps(b, s) {   // the skyline: lit crowns, water tanks, antennas, 
     block(ax - .3, ax + .3, top, top + ah, az - .3, az + .3, antennaMat, true, { prop: true });
     light(ax, top + ah + .4, az, b.z1);
   }
-  if (b.z0 > 150 && dx > 12 && rnd() < 0.1) crane(b, s);
+  if (b.z0 > 150 && dx > 12 && rnd() < 0.1) crane(b, s, street);
   else if (rnd() < 0.08) {   // a spire
     const h = R(14, 30), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
     const m = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 8), antennaMat); m.position.set(cx, top + h / 2, cz); m.userData.own = true; addDecor(m, b.z1);
@@ -353,66 +400,73 @@ function roofProps(b, s) {   // the skyline: lit crowns, water tanks, antennas, 
     light(cx, top + h + .3, cz, b.z1);
   }
 }
-function crane(b, s) {   // a tower crane whose arm reaches out over the street: a great anchor
+function crane(b, s, street) {   // a tower crane whose arm reaches out over its street: a great anchor
   const top = b.y1, tx = s < 0 ? b.x0 + 3 : b.x1 - 3, tz = (b.z0 + b.z1) / 2, th = R(18, 28);
   block(tx - 1.5, tx + 1.5, top, top + th, tz - 1.5, tz + 1.5, craneMat, true, { prop: true });
-  const end = s < 0 ? R(-2, 6) : -R(-2, 6), cj = tx + s * 10;
+  const end = street - s * R(-2, 6), cj = tx + s * 10;
   block(Math.min(tx, end), Math.max(tx, end), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { prop: true });
   block(Math.min(tx, cj), Math.max(tx, cj), top + th, top + th + 1.6, tz - .8, tz + .8, craneMat, true, { prop: true });
   block(cj - s * 3, cj, top + th - 3, top + th, tz - 1.2, tz + 1.2, poleMat, true, { prop: true });
   light(end, top + th + 2.1, tz, b.z1, redMat, .5);
 }
-function genSide(s, zEnd) {
-  const i = s < 0 ? 0 : 1;
+function genRow(i, zEnd) {
+  const { s, face: f0, street } = ROWS[i];
   while (GEN.z[i] < zEnd) {
     const z0 = GEN.z[i], early = z0 < 240;
     if (!early && rnd() < 0.05) { GEN.z[i] += R(30, 45); continue; }   // an open gap: only the other side
-    const w = R(16, 36), depth = R(18, 30), set = rnd() < 0.3 ? R(1, 4) : 0;
+    const w = R(16, 36), set = rnd() < 0.3 ? R(1, 4) : 0, depth = R(18, 32 - set);
     const h = GEN.h[i] = clamp(GEN.h[i] + R(-35, 35), early ? 190 : CLOUD + 60, 320);
-    const face = STREET + set, back = face + depth;
+    const face = f0 + set, back = face + depth;
     const x0 = s < 0 ? -back : face, x1 = s < 0 ? -face : back, z1 = z0 + w, v = (rnd() * 3) | 0;
     if (h > CLOUD + 80 && rnd() < 0.3) {   // a podium with a tower set back on it
       const hp = BASE + (h - BASE) * R(.55, .8), inset = R(3, 6);
       building(x0, x1, BASE, hp, z0, z1, v);
-      roofProps(building(s < 0 ? x0 + 2 : x0 + inset, s < 0 ? x1 - inset : x1 - 2, hp, h, z0 + 2, z1 - 2, v), s);
-    } else roofProps(building(x0, x1, BASE, h, z0, z1, v), s);
+      roofProps(building(s < 0 ? x0 + 2 : x0 + inset, s < 0 ? x1 - inset : x1 - 2, hp, h, z0 + 2, z1 - 2, v), s, street);
+    } else roofProps(building(x0, x1, BASE, h, z0, z1, v), s, street);
     const r = rnd(), gap = r < 0.55 ? R(0, 1.5) : r < 0.87 ? R(5, 12) : R(16, 28);
     GEN.z[i] = z1 + gap;
   }
 }
-function genBridges(zEnd) {   // sky bridges across the street between two tall towers
-  while (GEN.bridge < zEnd) {
-    const z = GEN.bridge; GEN.bridge += R(110, 210);
-    let hl = 0, hr = 0;
-    for (const b of boxes) if (b.bld && b.z0 <= z && b.z1 >= z + 6) {
-      if (b.x1 <= -STREET + .01 && b.x1 > -STREET - 4.5) hl = Math.max(hl, b.y1);
-      else if (b.x0 >= STREET - .01 && b.x0 < STREET + 4.5) hr = Math.max(hr, b.y1);
+// Sky bridges across a street between two tall towers: the centre street and both outer streets.
+// Each street: [bridge x0, x1, is a tower on the near side, is a tower on the far side].
+const STREETS = [
+  [-19, 19, b => b.x1 <= -15 + .01 && b.x1 > -19.5, b => b.x0 >= 15 - .01 && b.x0 < 19.5],
+  [-75, -41, b => b.x1 <= -73 + .01 && b.x1 > -77.5, b => b.x0 >= -47.5 && b.x0 <= -41 && b.x1 < 0],
+  [41, 75, b => b.x1 >= 41 && b.x1 <= 47.5 && b.x0 > 0, b => b.x0 >= 73 - .01 && b.x0 < 77.5],
+];
+function genBridges(zEnd) {
+  STREETS.forEach(([bx0, bx1, near, far], k) => {
+    while (GEN.bridge[k] < zEnd) {
+      const z = GEN.bridge[k]; GEN.bridge[k] += R(110, 210);
+      let ha = 0, hb = 0;
+      for (const b of boxes) if (b.bld && b.z0 <= z && b.z1 >= z + 6) { if (near(b)) ha = Math.max(ha, b.y1); else if (far(b)) hb = Math.max(hb, b.y1); }
+      const top = Math.min(ha, hb); if (top < CLOUD + 40) continue;
+      const y0 = R(CLOUD + 20, top - 8), w = bx1 - bx0;
+      const m = new THREE.Mesh(boxGeo(w, 3.5, 6, 0, .5), MATS[0]); m.position.set((bx0 + bx1) / 2, y0 + 1.75, z + 3); m.userData.own = true; addDecor(m, z + 6);
+      boxes.push({ x0: bx0, x1: bx1, y0, y1: y0 + 3.5, z0: z, z1: z + 6 });
     }
-    const top = Math.min(hl, hr); if (top < CLOUD + 40) continue;
-    const y0 = R(CLOUD + 20, top - 8);
-    const m = new THREE.Mesh(boxGeo(38, 3.5, 6, 0, .5), MATS[0]); m.position.set(0, y0 + 1.75, z + 3); m.userData.own = true; addDecor(m, z + 6);
-    boxes.push({ x0: -19, x1: 19, y0, y1: y0 + 3.5, z0: z, z1: z + 6 });
-  }
+  });
 }
 function genPuffs(zEnd) {
   while (GEN.puff < zEnd) {
     const z = GEN.puff; GEN.puff += R(14, 30);
     const high = rnd() < .25, sp = new THREE.Sprite(puffMats[(rnd() * 3) | 0]);
     const sc = R(50, 120); sp.scale.set(sc, sc * R(.3, .5), 1);
-    sp.position.set(R(-90, 90), high ? R(CLOUD + 40, 260) : R(CLOUD + 2, CLOUD + 24), z); addDecor(sp, z + 40);
+    sp.position.set(R(-150, 150), high ? R(CLOUD + 40, 260) : R(CLOUD + 2, CLOUD + 24), z); addDecor(sp, z + 40);
   }
 }
 function disposeDecor(d) { world.remove(d.o); if (d.o.userData.own) d.o.geometry.dispose(); }
 function resetWorld(sd) {
   seed = sd; for (const d of decor) disposeDecor(d); decor = []; boxes = []; blinkers.length = 0;
-  Object.assign(GEN, { z: [-90, -90], h: [215, 215], bridge: 160, puff: -120 });
+  Object.assign(GEN, { z: [-90, -90, -90, -90], h: [215, 215, 215, 215], bridge: [160, 200, 240], puff: -120 });
   updateWorld(0);
 }
 function updateWorld(z) {
   const ahead = z + 430;
-  genSide(-1, ahead); genSide(1, ahead); genBridges(ahead - 40); genPuffs(ahead);
+  for (let i = 0; i < ROWS.length; i++) genRow(i, ahead);
+  genBridges(ahead - 40); genPuffs(ahead);
   const behind = z - 160;
-  if (decor.length && decor[0].z1 < behind || boxes.length > 1200) {
+  if (decor.length && decor[0].z1 < behind || boxes.length > 2400) {
     decor = decor.filter(d => d.z1 >= behind || (disposeDecor(d), false));
     boxes = boxes.filter(b => b.z1 >= behind);
   }
@@ -487,7 +541,8 @@ function autoAnchor(side) {
       const lat = (aQ.x - p.x) * r.x + (aQ.z - p.z) * r.z, fwd = (aQ.x - p.x) * f.x + (aQ.z - p.z) * f.z;
       if (fwd < 4) continue;
       if (side && !over && lat * side < 1) continue;
-      const s = (aQ.y - p.y) - Math.abs(d - 36) * .6 + fwd * .3 - Math.abs(lat) * (side ? .1 : .4) + (over ? 5 : 0);
+      if (Math.abs(lat) > 42 || Math.abs(lat) > fwd * 2.2) continue;   // four rows: a rope two rows over would swing you sideways, not ahead
+      const s = (aQ.y - p.y) - Math.abs(d - 36) * .6 + fwd * .3 - Math.abs(lat) * (side ? .25 : .4) + (over ? 5 : 0);
       if (s > bs) { bs = s; best = (best || new V3()).copy(aQ); }
     }
   }
@@ -582,7 +637,7 @@ function step(dt) {
 const NORM = [new V3(-1, 0, 0), new V3(1, 0, 0), new V3(0, -1, 0), new V3(0, 1, 0), new V3(0, 0, -1), new V3(0, 0, 1)];
 function collide(dt) {
   const p = H.p, v = H.v, was = H.state, hs0 = Math.hypot(v.x, v.z);
-  if (p.y < CLOUD - 1.5) { onFall(); return; }
+  if (p.y < CLOUD - 1.5 || (Math.abs(p.x) > PARK && p.y < CLOUD + 5)) { onFall(); return; }
   let roof = null, wall = null, step = null;
   for (const b of boxes) {
     if (b.z1 < p.z - 2.5 || b.z0 > p.z + 2.5 || b.x1 < p.x - 2.5 || b.x0 > p.x + 2.5 || b.y1 < p.y - 2 || b.y0 > p.y + 3) continue;
@@ -616,7 +671,7 @@ function collide(dt) {
   } else if (roof) {
     if (was !== 'roof') land();
     H.state = 'roof'; H.roof = roof;
-    H.heading.applyAxisAngle(Y, -H.steer * T.steerRoof * dt);
+    H.heading.applyAxisAngle(Y, -H.steer * T.steerRoof * dt); towardSunset(H.heading, 1.1);
     if (wall) {   // a taller wall beside you: run along it, not into it
       const into = H.heading.dot(H.wallN);
       if (into < 0) { H.heading.addScaledVector(H.wallN, -into); if (H.heading.lengthSq() < .01) rightOf(H.wallN, H.heading); H.heading.normalize(); }
@@ -637,8 +692,14 @@ function collide(dt) {
   }
   S.lastVy = v.y;
 }
+// The sunset is straight ahead (+z) and it is the way to go: running on a roof never points more than
+// `max` radians away from it, and neither does the camera, so you can't end up running back the way you came.
+function towardSunset(dir, max) {
+  const a = clamp(Math.atan2(dir.x, dir.z), -max, max);
+  return dir.set(Math.sin(a), 0, Math.cos(a));
+}
 function land() {   // you land running; a drop rolls by itself and costs no speed (Simon, 2026-11-19: "you just run and roll")
-  tA.set(H.v.x, 0, H.v.z); H.heading.copy(tA.lengthSq() > 1 ? tA.normalize() : camDir);
+  tA.set(H.v.x, 0, H.v.z); H.heading.copy(tA.lengthSq() > 1 ? tA.normalize() : camDir); towardSunset(H.heading, 1.1);
   if (S.lastVy < -9) { H.rollT = .55; SFX.roll(); } else if (S.lastVy < -4) SFX.step();
 }
 function onFall() {
@@ -648,7 +709,7 @@ function onFall() {
 // ============================================================================================
 // THE COMPUTER PLAYER: swings behind the menu and drives the tests
 // ============================================================================================
-const B = { t: 0, next: 0 };
+const B = { t: 0, next: 0, held: 0 };
 function botThink(dt) {
   const p = H.p, v = H.v; B.t += dt;
   const ax = -(p.x * .12 + v.x * .12);
@@ -656,7 +717,8 @@ function botThink(dt) {
   const on = hooks.find(h => h.state === 'on' || h.state === 'fly');
   if (on) {
     if (on.state !== 'on') return;
-    if (p.z > on.a.z + 2 && v.y > 0 && (on.a.y - p.y) < on.L * .55) { release(on.i); B.t = 0; return; }
+    B.held += dt; if (B.held > 4) { release(on.i); B.t = 0; B.held = 0; return; }   // never hang on one rope
+    if (p.z > on.a.z + 2 && v.y > 0 && (on.a.y - p.y) < on.L * .55) { release(on.i); B.t = 0; B.held = 0; return; }
     on.reel = p.y < CLOUD + 25 ? 1 : p.y < CLOUD + 50 ? .5 : 0;
   } else if ((v.y < 1 || H.state !== 'air') && B.t > .15) {
     // the same rope the player has: lean away from whichever side it is drifting to
@@ -760,7 +822,7 @@ function drawHero(dt) {
 function updateCamera(dt, snap) {
   const p = H.p, v = H.v;
   tA.set(v.x, 0, v.z);
-  if (tA.lengthSq() > 9) camDir.lerp(tA.normalize(), snap ? 1 : 1 - Math.exp(-2.6 * dt)).normalize();
+  if (tA.lengthSq() > 9) towardSunset(camDir.lerp(tA.normalize(), snap ? 1 : 1 - Math.exp(-2.6 * dt)).normalize(), 1.2);
   const speed = v.length(), up = tall() ? T.camUpTall : T.camUp;
   tB.copy(p).addScaledVector(camDir, -(tall() ? T.camBackTall : T.camBack)).add(tC.set(0, up, 0));
   tD.subVectors(tB, p); const want = tD.length(); tD.divideScalar(want);
@@ -772,11 +834,13 @@ function updateCamera(dt, snap) {
   camera.lookAt(tA.copy(p).addScaledVector(camDir, 5).add(tC.set(0, .9, 0)));
   setFov(Math.min(T.fovMax, Math.max(0, speed - 12) * T.fovSpeed));
   sky.position.copy(camPos); stars.position.copy(camPos);
-  moon.position.copy(camPos).add(tA.set(-380, 520, 820));
+  moon.position.copy(camPos).add(tA.set(-380, 520, -820));   // the moon is behind you
+  sunDisc.position.copy(camPos).add(tA.set(0, 60, 1100));
   skyline.position.set(camPos.x, CLOUD + 150, camPos.z);
   const t = performance.now() / 1000;
   cloudFloor.m.position.set(camPos.x, CLOUD - 2, camPos.z); cloudFloor.under.position.set(camPos.x, CLOUD - 2.2, camPos.z);
   cloudFloor.t.offset.set((camPos.x / 300) + t * .002, -(camPos.z / 300));
+  for (const m of parks) m.position.set(m.userData.side * (PARK + 300), CLOUD + 4, Math.floor(camPos.z / 120) * 120 + 500);
   veil.m.position.set(camPos.x, CLOUD + 3, camPos.z); veil.t.offset.set((camPos.x / 500) + t * .006, -(camPos.z / 500) + t * .003);
 }
 
