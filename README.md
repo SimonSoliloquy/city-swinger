@@ -5,7 +5,7 @@ both edges, and a sunset ahead that shows the way. One thumb:
 hold to swing (the rope goes to the side you tilt the phone), let go to fly, tap to jump. Land on a
 roof and you just run. Called Grapple City at first; the balloon version it once had is at the tag `balloons-prototype`.
 
-Live at https://city-swinger.vercel.app. One `index.html`, three.js from a CDN, no build step.
+Live at https://simonsoliloquy.com/city-swinger/ (since 2026-11-19; the old city-swinger.vercel.app address forwards there until about 2026-12-19). One `index.html`, three.js from a CDN, no build step. `tools/cf-build.sh` copies the files into `.cf/city-swinger/` and `npx wrangler@4.40.0 deploy` publishes them (see `wrangler.jsonc`).
 `DESIGN.md` holds every ruling; read it before changing anything. Bump `VERSION` on every change.
 
 Local test: `tools/serve.sh`, then open http://127.0.0.1:8151/. In the console, `__game.sim(40)`
